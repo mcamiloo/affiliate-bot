@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.miguelcamilo.affiliatebot.healthcheck</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/miguelcamilo/affiliate-bot/venv/bin/python3</string>
+        <string>/Users/miguelcamilo/affiliate-bot/scripts/health_check.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/miguelcamilo/affiliate-bot</string>
+
+    <!-- 15min depois de cada horário do bot principal (00,03,06...21h),
+         pra dar tempo da varredura terminar antes de checar. Mesma
+         lógica do outro plist: StartCalendarInterval de propósito, não
+         StartInterval, pra não disparar no load. -->
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict><key>Hour</key><integer>0</integer><key>Minute</key><integer>15</integer></dict>
+        <dict><key>Hour</key><integer>3</integer><key>Minute</key><integer>15</integer></dict>
+        <dict><key>Hour</key><integer>6</integer><key>Minute</key><integer>15</integer></dict>
+        <dict><key>Hour</key><integer>9</integer><key>Minute</key><integer>15</integer></dict>
+        <dict><key>Hour</key><integer>12</integer><key>Minute</key><integer>15</integer></dict>
+        <dict><key>Hour</key><integer>15</integer><key>Minute</key><integer>15</integer></dict>
+        <dict><key>Hour</key><integer>18</integer><key>Minute</key><integer>15</integer></dict>
+        <dict><key>Hour</key><integer>21</integer><key>Minute</key><integer>15</integer></dict>
+    </array>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/miguelcamilo/affiliate-bot/logs/healthcheck_stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/miguelcamilo/affiliate-bot/logs/healthcheck_stderr.log</string>
+</dict>
+</plist>

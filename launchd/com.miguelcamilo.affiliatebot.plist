@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.miguelcamilo.affiliatebot</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/miguelcamilo/affiliate-bot/venv/bin/python3</string>
+        <string>/Users/miguelcamilo/affiliate-bot/main.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/miguelcamilo/affiliate-bot</string>
+
+    <!-- main.py roda em loop infinito (while True + sleep(LOOP_INTERVAL_SECONDS),
+         pensado pra execução contínua tipo Docker) — não usa mais
+         StartCalendarInterval porque o processo nunca sai sozinho, e
+         relançar via launchd a cada 3h enquanto o anterior ainda dorme
+         no sleep() criaria processos duplicados rodando em paralelo.
+         RunAtLoad + KeepAlive: inicia ao carregar e o launchd só
+         relança se o processo morrer (crash, kill, reboot) — o próprio
+         main.py controla o intervalo entre ciclos internamente. -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/miguelcamilo/affiliate-bot/logs/launchd_stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/miguelcamilo/affiliate-bot/logs/launchd_stderr.log</string>
+</dict>
+</plist>

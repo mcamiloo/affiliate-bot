@@ -1,0 +1,14 @@
+# Módulo 1 - Config & Database
+python-dotenv==1.0.1
+
+# Módulo 2 - cliente API AliExpress Affiliate
+python-aliexpress-api==3.1.0
+
+# Módulo 4 - publicação no Telegram
+python-telegram-bot==21.6
+
+# Testes
+pytest==8.3.3
+
+# Landing page estática (gerador local, fora do loop do bot)
+Jinja2==3.1.4
