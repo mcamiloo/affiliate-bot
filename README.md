@@ -1,5 +1,12 @@
 # affiliate-bot
 
+[![affiliate-marketing](https://img.shields.io/badge/affiliate--marketing-0969DA?style=flat-square)](https://github.com/topics/affiliate-marketing)
+[![aliexpress](https://img.shields.io/badge/aliexpress-0969DA?style=flat-square)](https://github.com/topics/aliexpress)
+[![automation](https://img.shields.io/badge/automation-0969DA?style=flat-square)](https://github.com/topics/automation)
+[![python](https://img.shields.io/badge/python-0969DA?style=flat-square)](https://github.com/topics/python)
+[![sqlite](https://img.shields.io/badge/sqlite-0969DA?style=flat-square)](https://github.com/topics/sqlite)
+[![telegram-bot](https://img.shields.io/badge/telegram--bot-0969DA?style=flat-square)](https://github.com/topics/telegram-bot)
+
 Bot que garimpa ofertas de eletrônicos/tech na [AliExpress Affiliate API](https://portals.aliexpress.com/), prioriza as com maior potencial de conversão em tráfego pago e publica automaticamente num canal do Telegram — sem repetir a mesma oferta duas vezes.
 
 ## Como funciona
