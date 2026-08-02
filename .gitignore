@@ -9,3 +9,6 @@ logs/*.log
 .pytest_cache/
 dist/
 .claude/settings.local.json
+
+# Local Netlify folder
+.netlify

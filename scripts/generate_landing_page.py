@@ -32,8 +32,8 @@ DEFAULT_LIMIT = 60
 # mesma escala definida por config.SCORE_WEIGHTS.
 HIGHLIGHT_SCORE_THRESHOLD = 75
 
-SITE_TITLE = "Ofertas Tech & Gaming"
-SITE_DESCRIPTION = "Selecionadas automaticamente — descontos reais na AliExpress."
+SITE_TITLE = "Tech & Gaming Deals"
+SITE_DESCRIPTION = "Auto-curated — real AliExpress discounts."
 
 
 def fetch_offers(limit: int) -> list[dict]:
