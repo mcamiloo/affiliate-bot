@@ -1,5 +1,14 @@
 import config
-from scripts.generate_landing_page import HIGHLIGHT_SCORE_THRESHOLD, render, render_privacy, render_thank_you
+from scripts.generate_landing_page import (
+    HIGHLIGHT_SCORE_THRESHOLD,
+    SITE_URL,
+    render,
+    render_privacy,
+    render_robots_txt,
+    render_sitemap_xml,
+    render_terms,
+    render_thank_you,
+)
 
 
 def _offer(**overrides):
@@ -54,3 +63,44 @@ def test_render_empty_state_when_no_offers():
 def test_render_privacy_and_thank_you_do_not_raise():
     assert "<html" in render_privacy()
     assert "<html" in render_thank_you()
+
+
+def test_render_terms_does_not_raise_and_links_privacy():
+    html = render_terms()
+    assert "<html" in html
+    assert 'href="privacy.html"' in html
+
+
+def test_render_has_no_inline_script_tag():
+    # script-src no netlify.toml não tem 'unsafe-inline' — landing.js
+    # externo é o único <script> permitido; um <script> inline voltaria
+    # a quebrar em produção sem que os testes percebessem.
+    html = render([_offer()])
+    assert '<script src="landing.js"' in html
+    assert "<script>" not in html
+
+
+def test_render_includes_seo_meta_tags():
+    html = render([_offer()])
+    assert 'rel="canonical"' in html
+    assert 'property="og:title"' in html
+    assert 'name="twitter:card"' in html
+    assert "application/ld+json" in html
+
+
+def test_render_robots_txt_references_sitemap():
+    robots = render_robots_txt()
+    assert "Allow: /" in robots
+    assert f"Sitemap: {SITE_URL}/sitemap.xml" in robots
+
+
+def test_render_sitemap_xml_is_well_formed_and_excludes_noindex_pages():
+    import xml.etree.ElementTree as ET
+
+    sitemap = render_sitemap_xml()
+    root = ET.fromstring(sitemap)  # levanta exceção se o XML for inválido
+    locs = [el.text for el in root.iter("{http://www.sitemaps.org/schemas/sitemap/0.9}loc")]
+
+    assert f"{SITE_URL}/" in locs
+    # privacy/thank-you são noindex — não deveriam aparecer no sitemap
+    assert not any("privacy" in loc or "thank-you" in loc for loc in locs)

@@ -529,3 +529,44 @@ def test_mark_subscriber_unsubscribed(db):
     db.mark_subscriber_unsubscribed("a@b.com")
 
     assert db.list_subscribers()[0]["status"] == "unsubscribed"
+
+
+# --- admin_users (login do painel) ------------------------------------------
+
+
+def test_create_admin_user_if_absent_creates_when_empty(db):
+    created = db.create_admin_user_if_absent("admin", "hash1")
+    assert created is True
+    assert db.get_admin_user("admin") is not None
+
+
+def test_create_admin_user_if_absent_is_noop_for_same_username(db):
+    db.create_admin_user_if_absent("admin", "hash1")
+    created_again = db.create_admin_user_if_absent("admin", "hash2")
+
+    assert created_again is False
+    assert db.get_admin_user("admin")["password_hash"] == "hash1"
+
+
+def test_create_admin_user_if_absent_is_noop_even_for_a_different_username(db):
+    # Não pode recriar um segundo admin só porque o username mudou depois
+    # do bootstrap (ver update_admin_username) — a checagem é "existe
+    # ALGUM admin", não "existe esse username específico".
+    db.create_admin_user_if_absent("admin", "hash1")
+    db.update_admin_username(1, "mcamiloo")
+
+    created_again = db.create_admin_user_if_absent("admin", "hash2")
+
+    assert created_again is False
+    assert db.get_admin_user("admin") is None
+    assert db.get_admin_user("mcamiloo") is not None
+
+
+def test_update_admin_username_renames(db):
+    db.create_admin_user_if_absent("admin", "hash1")
+    db.update_admin_username(1, "mcamiloo")
+
+    assert db.get_admin_user("admin") is None
+    renamed = db.get_admin_user("mcamiloo")
+    assert renamed is not None
+    assert renamed["password_hash"] == "hash1"

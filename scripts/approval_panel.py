@@ -63,10 +63,12 @@ _BREVO_EVENT_ALIASES = {
 }
 
 # Bootstrap: criado uma única vez (create_admin_user_if_absent não
-# sobrescreve se já existir admin) — força troca no primeiro login, então
-# a senha fraca só vale até o primeiro acesso de verdade.
+# sobrescreve se já existir admin). A senha é sorteada a cada instalação
+# nova (nunca um valor fixo — isso é código público no GitHub) e impressa
+# uma única vez no log/stdout de quem estiver rodando pela primeira vez;
+# must_change_password força trocar assim que logar.
 DEFAULT_ADMIN_USERNAME = "admin"
-DEFAULT_ADMIN_PASSWORD = "123456"
+DEFAULT_ADMIN_PASSWORD = secrets.token_urlsafe(12)
 
 # Rotas acessíveis sem sessão — tudo mais passa pelo guard em before_request.
 # As /api/* não usam cookie de sessão (widget do iPad via Scriptable não tem
@@ -119,9 +121,13 @@ app.config.update(SESSION_COOKIE_SECURE=True, SESSION_COOKIE_HTTPONLY=True, SESS
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_for=1, x_host=1)
 
 with DBManager() as _db:
-    _db.create_admin_user_if_absent(
-        DEFAULT_ADMIN_USERNAME, generate_password_hash(DEFAULT_ADMIN_PASSWORD)
-    )
+    if _db.create_admin_user_if_absent(DEFAULT_ADMIN_USERNAME, generate_password_hash(DEFAULT_ADMIN_PASSWORD)):
+        logger.warning(
+            "Nenhum admin existia — criado usuário %r com senha temporária: %s "
+            "(troque no primeiro login, isto só aparece uma vez).",
+            DEFAULT_ADMIN_USERNAME,
+            DEFAULT_ADMIN_PASSWORD,
+        )
 
 
 def _to_uk_local(iso_utc: str) -> datetime:

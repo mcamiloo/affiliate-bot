@@ -700,15 +700,20 @@ class DBManager:
 
     def create_admin_user_if_absent(
         self, username: str, password_hash: str, must_change_password: bool = True
-    ) -> None:
-        """Não faz nada se já existir algum admin — seed único de bootstrap,
-        pra não sobrescrever uma senha já trocada em execuções seguintes."""
+    ) -> bool:
+        """Não faz nada se já existir QUALQUER admin (checa a tabela toda,
+        não só esse username — o username pode ter sido renomeado depois
+        do bootstrap) — seed único, pra não recriar um segundo acesso.
+        Retorna True só quando de fato criou, pra quem chamou saber se
+        precisa mostrar a senha gerada pra alguém."""
         with self._conn:
+            if self._conn.execute("SELECT 1 FROM admin_users LIMIT 1;").fetchone() is not None:
+                return False
             self._conn.execute(
-                "INSERT OR IGNORE INTO admin_users (username, password_hash, must_change_password) "
-                "VALUES (?, ?, ?);",
+                "INSERT INTO admin_users (username, password_hash, must_change_password) VALUES (?, ?, ?);",
                 (username, password_hash, int(must_change_password)),
             )
+            return True
 
     def update_admin_password(self, user_id: int, password_hash: str) -> None:
         with self._conn:
@@ -716,6 +721,13 @@ class DBManager:
                 "UPDATE admin_users SET password_hash = ?, must_change_password = 0, "
                 "updated_at = datetime('now') WHERE id = ?;",
                 (password_hash, user_id),
+            )
+
+    def update_admin_username(self, user_id: int, username: str) -> None:
+        with self._conn:
+            self._conn.execute(
+                "UPDATE admin_users SET username = ?, updated_at = datetime('now') WHERE id = ?;",
+                (username, user_id),
             )
 
     def close(self) -> None:

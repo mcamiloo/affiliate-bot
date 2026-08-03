@@ -6,7 +6,27 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{ site_title }}</title>
 <meta name="description" content="{{ site_description }}">
+<link rel="canonical" href="{{ site_url }}/">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-100 -100 200 190'%3E%3Cg fill='%23ff5f6d'%3E%3Cpath d='M -25,-90 L -65,-90 L -90,-60 L -90,0 L -65,30 L -65,-35 L -45,-35 L -25,-60 Z'/%3E%3Cpath d='M -65,45 L -45,75 L -15,75 L -15,45 L -40,15 L -65,15 Z'/%3E%3Cpath d='M -15,-20 L -35,-20 L -50,0 L -35,20 L -15,20 Z'/%3E%3Cpath d='M 25,-90 L 65,-90 L 90,-60 L 90,0 L 65,30 L 65,-35 L 45,-35 L 25,-60 Z'/%3E%3Cpath d='M 65,45 L 45,75 L 15,75 L 15,45 L 40,15 L 65,15 Z'/%3E%3Cpath d='M 15,-20 L 35,-20 L 50,0 L 35,20 L 15,20 Z'/%3E%3Crect x='-5' y='-80' width='10' height='40'/%3E%3Crect x='-5' y='50' width='10' height='30'/%3E%3C/g%3E%3C/svg%3E">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="{{ brand_name }}">
+<meta property="og:title" content="{{ site_title }}">
+<meta property="og:description" content="{{ site_description }}">
+<meta property="og:url" content="{{ site_url }}/">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="{{ site_title }}">
+<meta name="twitter:description" content="{{ site_description }}">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": {{ brand_name | tojson }},
+  "url": {{ (site_url ~ "/") | tojson }},
+  "description": {{ site_description | tojson }}
+}
+</script>
 <style>
   :root {
     color-scheme: light dark;
@@ -322,99 +342,12 @@
     </a>
   </div>
   Contains affiliate links — we may earn a commission on purchases made through them, at no extra cost to you.<br>
-  Generated on {{ generated_at }}. · <a href="privacy.html" style="color:inherit;">Privacy Policy</a>
+  Generated on {{ generated_at }}. · <a href="privacy.html" style="color:inherit;">Privacy Policy</a> · <a href="terms.html" style="color:inherit;">Terms of Use</a>
   <p style="margin: 0.9rem 0 0; opacity: 0.7;">
     © {{ current_year }} {{ brand_name }}. All rights reserved. ·
     Developed by <a href="https://github.com/mcamiloo" target="_blank" rel="noopener" style="color:inherit; font-weight:600;">mcamiloo</a>
   </p>
 </footer>
-<script>
-  var prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  // Highlight do card de assinatura ao chegar via âncora "Email".
-  document.querySelectorAll('a[href="#subscribe"]').forEach(function (link) {
-    link.addEventListener('click', function () {
-      var section = document.getElementById('subscribe');
-      section.classList.remove('pulse-target');
-      void section.offsetWidth; // força reflow pra poder re-disparar a animação
-      section.classList.add('pulse-target');
-    });
-  });
-
-  // Contador subindo até o total real de ofertas — só estética, sem
-  // nenhuma lógica de negócio (o número final já vem pronto do servidor).
-  document.querySelectorAll('[data-count-to]').forEach(function (el) {
-    var target = parseInt(el.getAttribute('data-count-to'), 10) || 0;
-    if (prefersReducedMotion || target === 0) { el.textContent = target; return; }
-    var start = performance.now();
-    var duration = 900;
-    function tick(now) {
-      var progress = Math.min((now - start) / duration, 1);
-      el.textContent = Math.round(progress * target);
-      if (progress < 1) requestAnimationFrame(tick);
-    }
-    requestAnimationFrame(tick);
-  });
-
-  // Cards aparecem com fade+slide conforme entram na tela, em vez de
-  // tudo de uma vez — leve, cancelado de vez pra quem prefere menos movimento.
-  var cards = document.querySelectorAll('.card');
-  if (prefersReducedMotion || !('IntersectionObserver' in window)) {
-    cards.forEach(function (card) { card.style.opacity = 1; card.style.transform = 'none'; });
-  } else {
-    var observer = new IntersectionObserver(function (entries) {
-      entries.forEach(function (entry, i) {
-        if (entry.isIntersecting) {
-          setTimeout(function () { entry.target.classList.add('is-visible'); }, (i % 4) * 60);
-          observer.unobserve(entry.target);
-        }
-      });
-    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
-    cards.forEach(function (card) { observer.observe(card); });
-  }
-
-  document.getElementById('subscribe-form').addEventListener('submit', async function (event) {
-    event.preventDefault();
-    const form = event.target;
-    const messageEl = document.getElementById('form-message');
-    const button = form.querySelector('button');
-    const email = form.email.value.trim();
-    const consent = form.consent.checked;
-
-    messageEl.className = 'form-message visible';
-    if (!consent) {
-      messageEl.textContent = 'Please check the consent box to subscribe.';
-      messageEl.classList.add('error');
-      return;
-    }
-
-    button.disabled = true;
-    button.textContent = 'Subscribing…';
-
-    try {
-      const response = await fetch('/.netlify/functions/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, consent }),
-      });
-
-      if (response.ok) {
-        messageEl.textContent = 'Nearly there! Check your inbox to confirm your subscription.';
-        messageEl.classList.add('success');
-        form.reset();
-      } else {
-        const data = await response.json().catch(() => ({}));
-        messageEl.textContent = data.error || 'Something went wrong — please try again.';
-        messageEl.classList.add('error');
-      }
-    } catch (err) {
-      messageEl.textContent = 'Network error — please try again.';
-      messageEl.classList.add('error');
-    } finally {
-      button.disabled = false;
-      button.textContent = 'Subscribe';
-    }
-  });
-</script>
+<script src="landing.js" defer></script>
 </body>
 </html>

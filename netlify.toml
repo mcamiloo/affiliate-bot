@@ -1,3 +1,16 @@
 [build]
   publish = "dist"
   functions = "netlify/functions"
+
+# script-src sem 'unsafe-inline' só é possível porque o JS da landing page
+# foi movido pra um arquivo externo (templates/landing.js, sem Jinja) —
+# ver scripts/generate_landing_page.py. style-src ainda precisa de
+# 'unsafe-inline' porque o CSS continua nos <style> inline de cada página.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests"

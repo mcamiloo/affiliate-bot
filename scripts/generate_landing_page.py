@@ -13,6 +13,7 @@ Uso:
 from __future__ import annotations
 
 import argparse
+import shutil
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -34,6 +35,10 @@ HIGHLIGHT_SCORE_THRESHOLD = 75
 
 SITE_TITLE = "Tech & Gaming Deals"
 SITE_DESCRIPTION = "Auto-curated — real AliExpress discounts."
+# Domínio de produção — usado pra canonical/OG/sitemap. Só isso muda se o
+# site algum dia trocar de domínio (não vem do .env porque não é um
+# segredo nem varia por ambiente — é o mesmo Netlify site sempre).
+SITE_URL = "https://ombrotechwear.co.uk"
 
 
 def fetch_offers(limit: int) -> list[dict]:
@@ -68,6 +73,7 @@ def render(offers: list[dict]) -> str:
         # verdade — o rodapé/copyright usa o mesmo nome do Telegram/
         # Instagram/remetente do email (BREVO_SENDER_NAME).
         brand_name=config.BREVO_SENDER_NAME,
+        site_url=SITE_URL,
     )
 
 
@@ -83,6 +89,19 @@ def render_privacy() -> str:
         address_postal_code=config.NEWSLETTER_ADDRESS_POSTAL_CODE,
         address_country=config.NEWSLETTER_ADDRESS_COUNTRY,
         updated_at=datetime.now().strftime("%d %B %Y"),
+        site_url=SITE_URL,
+    )
+
+
+def render_terms() -> str:
+    env = Environment(loader=FileSystemLoader(TEMPLATES_DIR), autoescape=True)
+    template = env.get_template("terms.html.j2")
+    return template.render(
+        site_title=SITE_TITLE,
+        controller_name=config.BREVO_SENDER_NAME,
+        controller_email=config.BREVO_SENDER_EMAIL,
+        updated_at=datetime.now().strftime("%d %B %Y"),
+        site_url=SITE_URL,
     )
 
 
@@ -90,6 +109,34 @@ def render_thank_you() -> str:
     env = Environment(loader=FileSystemLoader(TEMPLATES_DIR), autoescape=True)
     template = env.get_template("thank_you.html.j2")
     return template.render(site_title=SITE_TITLE)
+
+
+def render_robots_txt() -> str:
+    return (
+        "User-agent: *\n"
+        "Allow: /\n"
+        f"Sitemap: {SITE_URL}/sitemap.xml\n"
+    )
+
+
+def render_sitemap_xml() -> str:
+    # Só páginas com valor pra busca orgânica — privacy/thank-you já são
+    # noindex (ver <meta name="robots"> nos templates delas), listar no
+    # sitemap junto seria um sinal contraditório pros buscadores.
+    urls = [
+        (f"{SITE_URL}/", "hourly", "1.0"),
+        (f"{SITE_URL}/terms.html", "yearly", "0.2"),
+    ]
+    entries = "\n".join(
+        f"  <url><loc>{loc}</loc><changefreq>{freq}</changefreq><priority>{prio}</priority></url>"
+        for loc, freq, prio in urls
+    )
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        f"{entries}\n"
+        "</urlset>\n"
+    )
 
 
 def main() -> None:
@@ -110,13 +157,32 @@ def main() -> None:
     privacy_out = args.out.parent / "privacy.html"
     privacy_out.write_text(render_privacy(), encoding="utf-8")
 
+    terms_out = args.out.parent / "terms.html"
+    terms_out.write_text(render_terms(), encoding="utf-8")
+
     thank_you_out = args.out.parent / "thank-you.html"
     thank_you_out.write_text(render_thank_you(), encoding="utf-8")
+
+    robots_out = args.out.parent / "robots.txt"
+    robots_out.write_text(render_robots_txt(), encoding="utf-8")
+
+    sitemap_out = args.out.parent / "sitemap.xml"
+    sitemap_out.write_text(render_sitemap_xml(), encoding="utf-8")
+
+    # landing.js é JS estático puro (sem Jinja) — só copia, não renderiza.
+    # Externo de propósito pra permitir um CSP sem 'unsafe-inline' em
+    # script-src (ver netlify.toml).
+    landing_js_out = args.out.parent / "landing.js"
+    shutil.copyfile(TEMPLATES_DIR / "landing.js", landing_js_out)
 
     with_image = sum(1 for o in offers if o["image_url"])
     print(f"✅ {len(offers)} oferta(s) renderizada(s) ({with_image} com imagem) -> {args.out}")
     print(f"✅ Página de privacidade -> {privacy_out}")
+    print(f"✅ Página de termos -> {terms_out}")
     print(f"✅ Página de agradecimento -> {thank_you_out}")
+    print(f"✅ robots.txt -> {robots_out}")
+    print(f"✅ sitemap.xml -> {sitemap_out}")
+    print(f"✅ landing.js -> {landing_js_out}")
 
 
 if __name__ == "__main__":
