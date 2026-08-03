@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.miguelcamilo.affiliatebot.panel</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/miguelcamilo/affiliate-bot/venv/bin/python3</string>
+        <string>/Users/miguelcamilo/affiliate-bot/scripts/approval_panel.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/miguelcamilo/affiliate-bot</string>
+
+    <!-- Painel Flask faz bind em 127.0.0.1 (ver approval_panel.py) — nunca
+         alcançável fora desta máquina, então RunAtLoad+KeepAlive aqui é
+         seguro do mesmo jeito que os outros processos contínuos. -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/miguelcamilo/affiliate-bot/logs/panel_stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/miguelcamilo/affiliate-bot/logs/panel_stderr.log</string>
+</dict>
+</plist>

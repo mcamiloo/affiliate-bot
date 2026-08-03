@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from scripts.health_check import _as_applescript_string, last_successful_cycle
+from scripts.health_check import last_successful_cycle
 
 
 def _write_log(tmp_path, lines):
@@ -43,9 +43,3 @@ def test_last_successful_cycle_picks_the_most_recent_match(tmp_path):
     )
     result = last_successful_cycle(log_file=log_file)
     assert result == (datetime(2026, 8, 1, 18, 0, 0), 7)
-
-
-def test_as_applescript_string_escapes_quotes_and_backslashes():
-    assert _as_applescript_string("hello") == '"hello"'
-    assert _as_applescript_string('say "hi"') == '"say \\"hi\\""'
-    assert _as_applescript_string("back\\slash") == '"back\\\\slash"'

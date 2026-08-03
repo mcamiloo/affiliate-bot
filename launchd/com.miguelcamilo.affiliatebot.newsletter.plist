@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.miguelcamilo.affiliatebot.newsletter</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/miguelcamilo/affiliate-bot/venv/bin/python3</string>
+        <string>/Users/miguelcamilo/affiliate-bot/scripts/newsletter_scheduler.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/miguelcamilo/affiliate-bot</string>
+
+    <!-- Mesmo padrão de com.miguelcamilo.affiliatebot.plist: processo
+         contínuo (while True + sleep interno), não StartCalendarInterval,
+         pra não relançar em paralelo enquanto o anterior ainda dorme. -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/miguelcamilo/affiliate-bot/logs/newsletter_launchd_stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/miguelcamilo/affiliate-bot/logs/newsletter_launchd_stderr.log</string>
+</dict>
+</plist>

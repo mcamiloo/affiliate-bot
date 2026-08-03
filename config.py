@@ -68,6 +68,49 @@ ALIEXPRESS_TRACKING_ID = os.getenv("ALIEXPRESS_TRACKING_ID", "")
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
+TELEGRAM_CHANNEL_INVITE_LINK = os.getenv("TELEGRAM_CHANNEL_INVITE_LINK", "")
+
+# WhatsApp — automação de UI do WhatsApp Desktop (sem API oficial, ver
+# modules/whatsapp_publisher.py). Desligado por padrão: só liga depois de
+# calibrar os delays da automação manualmente na máquina de produção.
+WHATSAPP_ENABLED = os.getenv("WHATSAPP_ENABLED", "false").strip().lower() == "true"
+# Nome EXATO da comunidade/conversa como aparece na lista lateral do
+# WhatsApp Desktop — usado pra buscar e abrir o chat certo.
+WHATSAPP_COMMUNITY_NAME = os.getenv("WHATSAPP_COMMUNITY_NAME", "")
+
+# Brevo — newsletter diária por email.
+BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
+BREVO_LIST_ID = _env_int("BREVO_LIST_ID", 0) if os.getenv("BREVO_LIST_ID") else None
+BREVO_DOI_TEMPLATE_ID = _env_int("BREVO_DOI_TEMPLATE_ID", 0) if os.getenv("BREVO_DOI_TEMPLATE_ID") else None
+BREVO_DOI_REDIRECT_URL = os.getenv("BREVO_DOI_REDIRECT_URL", "")
+BREVO_SENDER_NAME = os.getenv("BREVO_SENDER_NAME", "")
+BREVO_SENDER_EMAIL = os.getenv("BREVO_SENDER_EMAIL", "")
+
+# Endereço físico exigido por lei (PECR/CAN-SPAM) no rodapé do email —
+# sem isso o envio de email em massa não é compliant.
+NEWSLETTER_ADDRESS_LINE1 = os.getenv("NEWSLETTER_ADDRESS_LINE1", "")
+NEWSLETTER_ADDRESS_CITY = os.getenv("NEWSLETTER_ADDRESS_CITY", "")
+NEWSLETTER_ADDRESS_POSTAL_CODE = os.getenv("NEWSLETTER_ADDRESS_POSTAL_CODE", "")
+NEWSLETTER_ADDRESS_COUNTRY = os.getenv("NEWSLETTER_ADDRESS_COUNTRY", "")
+
+# Janela (hora local do Reino Unido) dentro da qual o horário de envio
+# diário é sorteado, e quanto tempo antes o rascunho é gerado.
+NEWSLETTER_WINDOW_START_HOUR_UK = _env_int("NEWSLETTER_WINDOW_START_HOUR_UK", 8)
+NEWSLETTER_WINDOW_END_HOUR_UK = _env_int("NEWSLETTER_WINDOW_END_HOUR_UK", 20)
+NEWSLETTER_DRAFT_LEAD_MINUTES = _env_int("NEWSLETTER_DRAFT_LEAD_MINUTES", 60)
+NEWSLETTER_LOOKBACK_HOURS = _env_int("NEWSLETTER_LOOKBACK_HOURS", 48)
+NEWSLETTER_MAX_OFFERS = _env_int("NEWSLETTER_MAX_OFFERS", 8)
+
+# Intervalo de checagem do agendador e log próprio (separado do log do
+# bot principal, pra não misturar as duas linhas de execução).
+NEWSLETTER_SCHEDULER_POLL_SECONDS = _env_int("NEWSLETTER_SCHEDULER_POLL_SECONDS", 300)
+# A cada quantos polls o agendador sincroniza subscribers a partir do
+# Brevo (não precisa ser a cada tick — contatos não mudam tão rápido).
+NEWSLETTER_SUBSCRIBER_SYNC_EVERY_N_POLLS = _env_int("NEWSLETTER_SUBSCRIBER_SYNC_EVERY_N_POLLS", 12)
+NEWSLETTER_LOG_FILE = LOGS_DIR / "newsletter_scheduler.log"
+
+# Painel de aprovação local — bind exclusivo em 127.0.0.1, nunca exposto.
+APPROVAL_PANEL_PORT = _env_int("APPROVAL_PANEL_PORT", 8765)
 
 # --- Regras de negócio ---------------------------------------------------
 MIN_DISCOUNT_PERCENT = _env_int("MIN_DISCOUNT_PERCENT", 30)

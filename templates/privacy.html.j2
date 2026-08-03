@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy — {{ site_title }}</title>
+<meta name="robots" content="noindex">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #0b0d12; --surface: #151822; --text: #eef0f4; --text-muted: #9aa1b2;
+    --accent: #ff5f6d; --border: #262b3a;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #f5f6f8; --surface: #ffffff; --text: #14161c; --text-muted: #5c6270; --border: #e4e6eb; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
+  main { max-width: 720px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; line-height: 1.65; }
+  h1 { font-size: 1.7rem; margin-bottom: 0.3rem; }
+  h2 { font-size: 1.1rem; margin-top: 2.2rem; }
+  .updated { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 2rem; }
+  a { color: var(--accent); }
+  .back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.9rem; }
+  address { font-style: normal; }
+</style>
+</head>
+<body>
+<main>
+  <a class="back-link" href="index.html">← Back to {{ site_title }}</a>
+  <h1>Privacy Policy</h1>
+  <p class="updated">Last updated: {{ updated_at }}</p>
+
+  <p>
+    This policy explains how {{ controller_name }} ("we", "us") collects and uses your personal
+    data when you subscribe to our daily deals email newsletter, in line with the UK GDPR and the
+    Privacy and Electronic Communications Regulations (PECR).
+  </p>
+
+  <h2>Who we are</h2>
+  <address>
+    {{ controller_name }}<br>
+    {{ address_line1 }}, {{ address_city }}, {{ address_postal_code }}, {{ address_country }}<br>
+    Contact: <a href="mailto:{{ controller_email }}">{{ controller_email }}</a>
+  </address>
+
+  <h2>What we collect</h2>
+  <p>
+    When you subscribe through our signup form, we collect: your email address, the timestamp of
+    your consent, and confirmation that you actively checked the consent box. We do not collect
+    any other personal information, and this site does not use tracking or analytics cookies.
+  </p>
+
+  <h2>Why we collect it</h2>
+  <p>
+    We use your email address solely to send you our daily deals newsletter, which you explicitly
+    opted into. The legal basis for this processing is your consent (UK GDPR Article 6(1)(a)),
+    which you can withdraw at any time.
+  </p>
+
+  <h2>Double opt-in</h2>
+  <p>
+    After submitting the signup form, you'll receive a confirmation email. You are only added to
+    our mailing list once you click the confirmation link — submitting the form alone does not
+    subscribe you.
+  </p>
+
+  <h2>Who else sees it</h2>
+  <p>
+    We use <a href="https://www.brevo.com/legal/privacypolicy/" target="_blank" rel="noopener">Brevo</a>
+    as our email service provider to store your contact details and send the newsletter on our
+    behalf. Brevo processes this data as our data processor, under its own privacy policy and
+    security safeguards. We do not sell or share your email address with any other third party.
+  </p>
+
+  <h2>How long we keep it</h2>
+  <p>
+    We keep your email address for as long as you remain subscribed. If you unsubscribe, we keep a
+    minimal record (email address and the date you unsubscribed) for a reasonable period to honour
+    your opt-out and for our own compliance record-keeping, after which it is deleted.
+  </p>
+
+  <h2>Your rights</h2>
+  <p>
+    Under UK GDPR you have the right to access, correct, or delete your personal data, to restrict
+    or object to its processing, and to receive a copy of it in a portable format. To exercise any
+    of these rights, or to unsubscribe, email us at
+    <a href="mailto:{{ controller_email }}">{{ controller_email }}</a> or use the unsubscribe link
+    included in every newsletter email. You also have the right to lodge a complaint with the
+    <a href="https://ico.org.uk/make-a-complaint/" target="_blank" rel="noopener">UK Information Commissioner's Office (ICO)</a>.
+  </p>
+
+  <h2>Changes to this policy</h2>
+  <p>We may update this policy from time to time; the date above reflects the latest revision.</p>
+</main>
+</body>
+</html>

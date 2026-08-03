@@ -1,5 +1,6 @@
 """Liga os módulos anteriores: busca de ofertas -> publicação no Telegram
--> gravação no banco (pra não duplicar em execuções futuras).
+(e, se ligado, espelhado no WhatsApp) -> gravação no banco (pra não
+duplicar em execuções futuras).
 
 Uma chamada de run_cycle() processa as palavras-chave do nicho uma vez e
 retorna — o agendamento pra rodar 24/7 é responsabilidade do launchd
@@ -16,6 +17,7 @@ import config
 from database.db_manager import DBManager, compute_score
 from modules.aliexpress_client import discover_new_offers
 from modules.telegram_publisher import publish_offer
+from modules.whatsapp_publisher import publish_offer as publish_offer_whatsapp
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +66,27 @@ def process_keyword(keyword: str, db: DBManager) -> int:
                 offer.title,
             )
             continue
+
+        # WhatsApp é canal secundário/best-effort: dispara logo após o
+        # Telegram publicar com sucesso, mesma oferta, mesmo instante do
+        # ciclo. A automação de UI é mais frágil que a API do Telegram —
+        # uma falha aqui não desfaz a publicação já feita no Telegram nem
+        # impede o save_offer abaixo.
+        try:
+            publish_offer_whatsapp(
+                title=offer.title,
+                original_price=offer.original_price,
+                discounted_price=offer.sale_price,
+                discount_percent=offer.discount_percent,
+                link=offer.affiliate_url,
+            )
+        except Exception:
+            logger.exception(
+                "Falha ao publicar oferta %s ('%s') no WhatsApp — Telegram já "
+                "publicado, seguindo em frente",
+                offer.item_id,
+                offer.title,
+            )
 
         db.save_offer(
             item_id=offer.item_id,

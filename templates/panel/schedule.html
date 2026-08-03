@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Horários agendados</h1>
+
+<div class="card">
+  <h3 style="margin-top:0;">Criar novo</h3>
+  <form method="post" action="{{ url_for('create_schedule') }}" style="display:flex; gap:0.6rem; align-items:center;">
+    <input type="date" name="send_date" value="{{ today }}" required>
+    <input type="time" name="local_time" required>
+    <button type="submit" class="btn-secondary">+ Agendar</button>
+    <span class="muted">Horário em hora local do Reino Unido.</span>
+  </form>
+</div>
+
+<table>
+  <thead>
+    <tr><th>Data</th><th>Horário-alvo (UK)</th><th>Status</th><th>Editar</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td>{{ row.send_date }}</td>
+      <td>{{ to_uk_local(row.target_time_utc).strftime('%H:%M') }}</td>
+      <td><span class="status-pill">{{ row.status }}</span></td>
+      <td>
+        <form class="inline" method="post" action="{{ url_for('update_schedule', scheduled_send_id=row.id) }}" style="display:flex; gap:0.4rem;">
+          <input type="time" name="local_time" value="{{ to_uk_local(row.target_time_utc).strftime('%H:%M') }}">
+          <button type="submit" class="btn-secondary">Salvar</button>
+        </form>
+      </td>
+      <td>
+        <form class="inline" method="post" action="{{ url_for('delete_schedule', scheduled_send_id=row.id) }}"
+              onsubmit="return confirm('Excluir este agendamento?');">
+          <button type="submit" class="btn-delete">Excluir</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

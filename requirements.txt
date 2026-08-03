@@ -7,6 +7,10 @@ python-aliexpress-api==3.1.0
 # Módulo 4 - publicação no Telegram
 python-telegram-bot==21.6
 
+# Newsletter diária - cliente HTTP pra API do Brevo e painel de aprovação local
+httpx==0.28.1
+Flask==3.1.0
+
 # Testes
 pytest==8.3.3
 

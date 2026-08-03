@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Newsletter — Painel de Aprovação</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #0b0d12; --surface: #151822; --text: #eef0f4; --text-muted: #9aa1b2;
+    --accent: #ff5f6d; --border: #262b3a; --ok: #35c46f; --danger: #ff5f6d;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #f5f6f8; --surface: #ffffff; --text: #14161c; --text-muted: #5c6270; --border: #e4e6eb; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
+  nav { display: flex; gap: 1.2rem; padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); }
+  nav a { color: var(--text-muted); text-decoration: none; font-size: 0.9rem; font-weight: 600; }
+  nav a.active { color: var(--text); }
+  main { max-width: 900px; margin: 0 auto; padding: 1.5rem; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.2rem; margin-bottom: 1rem; }
+  button, .btn { font: inherit; cursor: pointer; border: none; border-radius: 6px; padding: 0.5rem 0.9rem; font-weight: 600; font-size: 0.85rem; }
+  .btn-approve { background: var(--ok); color: #06210f; }
+  .btn-reject, .btn-delete { background: var(--danger); color: #2b0505; }
+  .btn-secondary { background: var(--border); color: var(--text); }
+  input[type=time], input[type=date] { font: inherit; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 0.35rem 0.5rem; }
+  .muted { color: var(--text-muted); font-size: 0.85rem; }
+  iframe { width: 100%; height: 420px; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 0.5rem 0.4rem; border-bottom: 1px solid var(--border); font-size: 0.88rem; }
+  form.inline { display: inline; }
+  .status-pill { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.75rem; font-weight: 700; background: var(--border); }
+</style>
+</head>
+<body>
+<nav>
+  <a href="/queue" class="{{ 'active' if request.path.startswith('/queue') else '' }}">Fila de aprovação</a>
+  <a href="/schedule" class="{{ 'active' if request.path.startswith('/schedule') else '' }}">Horários agendados</a>
+</nav>
+<main>
+{% block content %}{% endblock %}
+</main>
+</body>
+</html>

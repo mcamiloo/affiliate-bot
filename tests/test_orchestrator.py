@@ -34,6 +34,7 @@ def test_process_keyword_publishes_and_saves(monkeypatch, db):
     monkeypatch.setattr(orch, "discover_new_offers", lambda keyword, db: offers)
     published_calls = []
     monkeypatch.setattr(orch, "publish_offer", lambda **kwargs: published_calls.append(kwargs))
+    monkeypatch.setattr(orch, "publish_offer_whatsapp", lambda **kwargs: None)
 
     count = orch.process_keyword("gaming mouse", db)
 
@@ -54,6 +55,7 @@ def test_process_keyword_publishes_highest_score_first(monkeypatch, db):
     monkeypatch.setattr(config, "MAX_OFFERS_PER_KEYWORD", 1)
     published_calls = []
     monkeypatch.setattr(orch, "publish_offer", lambda **kwargs: published_calls.append(kwargs))
+    monkeypatch.setattr(orch, "publish_offer_whatsapp", lambda **kwargs: None)
 
     count = orch.process_keyword("gaming mouse", db)
 
@@ -70,6 +72,7 @@ def test_process_keyword_respects_max_offers_per_keyword(monkeypatch, db):
     monkeypatch.setattr(orch, "discover_new_offers", lambda keyword, db: offers)
     published_calls = []
     monkeypatch.setattr(orch, "publish_offer", lambda **kwargs: published_calls.append(kwargs))
+    monkeypatch.setattr(orch, "publish_offer_whatsapp", lambda **kwargs: None)
 
     count = orch.process_keyword("gaming mouse", db)
 
@@ -95,12 +98,48 @@ def test_process_keyword_continues_after_publish_failure(monkeypatch, db):
             raise RuntimeError("falha simulada de rede")
 
     monkeypatch.setattr(orch, "publish_offer", publish_side_effect)
+    monkeypatch.setattr(orch, "publish_offer_whatsapp", lambda **kwargs: None)
 
     count = orch.process_keyword("gaming mouse", db)
 
     assert count == 1  # só a segunda oferta foi publicada com sucesso
     assert not db.is_duplicate("1")  # falhou -> não fica marcada como vista
     assert db.is_duplicate("2")
+
+
+def test_process_keyword_calls_whatsapp_after_telegram_success(monkeypatch, db):
+    offers = [make_offer(item_id="1")]
+    monkeypatch.setattr(orch, "discover_new_offers", lambda keyword, db: offers)
+    monkeypatch.setattr(orch, "publish_offer", lambda **kwargs: None)
+    whatsapp_calls = []
+    monkeypatch.setattr(
+        orch, "publish_offer_whatsapp", lambda **kwargs: whatsapp_calls.append(kwargs)
+    )
+
+    count = orch.process_keyword("gaming mouse", db)
+
+    assert count == 1
+    assert len(whatsapp_calls) == 1
+    assert whatsapp_calls[0]["title"] == offers[0].title
+
+
+def test_process_keyword_whatsapp_failure_does_not_block_publish(monkeypatch, db):
+    # Falha no WhatsApp (canal secundário/best-effort) não pode impedir a
+    # oferta de ser contabilizada como publicada nem de ser marcada como
+    # vista no banco — o Telegram (canal principal) já publicou com sucesso.
+    offers = [make_offer(item_id="1")]
+    monkeypatch.setattr(orch, "discover_new_offers", lambda keyword, db: offers)
+    monkeypatch.setattr(orch, "publish_offer", lambda **kwargs: None)
+
+    def failing_whatsapp(**kwargs):
+        raise RuntimeError("automação de UI falhou")
+
+    monkeypatch.setattr(orch, "publish_offer_whatsapp", failing_whatsapp)
+
+    count = orch.process_keyword("gaming mouse", db)
+
+    assert count == 1
+    assert db.is_duplicate("1")
 
 
 def test_process_keyword_handles_discovery_failure(monkeypatch, db):
@@ -128,6 +167,7 @@ def test_run_cycle_stops_after_first_published_offer(monkeypatch, tmp_path):
 
     monkeypatch.setattr(orch, "discover_new_offers", fake_discover)
     monkeypatch.setattr(orch, "publish_offer", lambda **kwargs: calls.append(kwargs))
+    monkeypatch.setattr(orch, "publish_offer_whatsapp", lambda **kwargs: None)
 
     total = orch.run_cycle(keywords=["gaming mouse", "smart tv"])
 
@@ -146,6 +186,7 @@ def test_run_cycle_deduplicates_across_keywords_in_same_run(monkeypatch, tmp_pat
 
     monkeypatch.setattr(orch, "discover_new_offers", fake_discover)
     monkeypatch.setattr(orch, "publish_offer", lambda **kwargs: calls.append(kwargs))
+    monkeypatch.setattr(orch, "publish_offer_whatsapp", lambda **kwargs: None)
 
     total = orch.run_cycle(keywords=["gaming mouse", "mouse pad"])
 
@@ -163,6 +204,7 @@ def test_run_cycle_defaults_to_config_niche_keywords(monkeypatch, tmp_path):
 
     monkeypatch.setattr(orch, "discover_new_offers", fake_discover)
     monkeypatch.setattr(orch, "publish_offer", lambda **kwargs: None)
+    monkeypatch.setattr(orch, "publish_offer_whatsapp", lambda **kwargs: None)
 
     orch.run_cycle()
 

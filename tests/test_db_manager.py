@@ -246,3 +246,105 @@ def test_list_offers_by_score_respects_limit(db):
     for i in range(5):
         db.save_offer(**_sample_offer(item_id=f"ITEM{i}", price=20.0, discount=float(i)))
     assert len(db.list_offers_by_score(limit=2)) == 2
+
+
+def test_list_offers_by_score_since_hours_excludes_old_offers(db):
+    db.save_offer(**_sample_offer(item_id="RECENT"))
+    db.save_offer(**_sample_offer(item_id="OLD"))
+    db._conn.execute(
+        "UPDATE posted_offers SET posted_at = datetime('now', '-72 hours') WHERE item_id = 'OLD';"
+    )
+    db._conn.commit()
+
+    recent_ids = [row["item_id"] for row in db.list_offers_by_score(limit=10, since_hours=48)]
+    assert recent_ids == ["RECENT"]
+
+    all_ids = [row["item_id"] for row in db.list_offers_by_score(limit=10)]
+    assert set(all_ids) == {"RECENT", "OLD"}
+
+
+# --- subscribers ------------------------------------------------------------
+
+
+def test_upsert_subscriber_inserts_new(db):
+    db.upsert_subscriber("a@b.com", brevo_contact_id=1, status="active", consented_at="2026-08-01T00:00:00Z")
+    subs = db.list_active_subscribers()
+    assert len(subs) == 1
+    assert subs[0]["email"] == "a@b.com"
+    assert subs[0]["consented_at"] == "2026-08-01T00:00:00Z"
+
+
+def test_upsert_subscriber_updates_status_without_losing_consented_at(db):
+    db.upsert_subscriber("a@b.com", brevo_contact_id=1, status="active", consented_at="2026-08-01T00:00:00Z")
+    # Um pull subsequente do Brevo pode não trazer o atributo de novo —
+    # não pode apagar o que já tínhamos gravado.
+    db.upsert_subscriber("a@b.com", brevo_contact_id=1, status="unsubscribed", consented_at=None)
+
+    subs = db.list_active_subscribers()
+    assert subs == []
+    assert db.count_active_subscribers() == 0
+
+
+def test_count_active_subscribers_ignores_unsubscribed(db):
+    db.upsert_subscriber("a@b.com", brevo_contact_id=1, status="active")
+    db.upsert_subscriber("b@b.com", brevo_contact_id=2, status="unsubscribed")
+    assert db.count_active_subscribers() == 1
+
+
+# --- scheduled_sends ---------------------------------------------------------
+
+
+def test_create_and_get_scheduled_send(db):
+    sid = db.create_scheduled_send("2026-08-02", "2026-08-02T18:00:00+00:00", "2026-08-02T17:00:00+00:00")
+    row = db.get_scheduled_send(sid)
+    assert row["send_date"] == "2026-08-02"
+    assert row["status"] == "pending"
+    assert db.get_scheduled_send_by_date("2026-08-02")["id"] == sid
+
+
+def test_update_scheduled_send_changes_only_given_fields(db):
+    sid = db.create_scheduled_send("2026-08-02", "2026-08-02T18:00:00+00:00", "2026-08-02T17:00:00+00:00")
+    db.update_scheduled_send(sid, status="draft_created")
+    row = db.get_scheduled_send(sid)
+    assert row["status"] == "draft_created"
+    assert row["target_time_utc"] == "2026-08-02T18:00:00+00:00"
+
+
+def test_delete_scheduled_send_cascades_drafts(db):
+    sid = db.create_scheduled_send("2026-08-02", "2026-08-02T18:00:00+00:00", "2026-08-02T17:00:00+00:00")
+    db.create_email_draft(sid, "<html></html>", ["1"], brevo_campaign_id=1)
+    db.delete_scheduled_send(sid)
+    assert db.get_scheduled_send(sid) is None
+    assert db.get_draft_by_scheduled_send(sid) is None
+
+
+# --- email_drafts -------------------------------------------------------------
+
+
+def test_create_and_list_pending_drafts(db):
+    sid = db.create_scheduled_send("2026-08-02", "2026-08-02T18:00:00+00:00", "2026-08-02T17:00:00+00:00")
+    did = db.create_email_draft(sid, "<html></html>", ["1", "2"], brevo_campaign_id=42)
+
+    pending = db.list_pending_drafts()
+    assert len(pending) == 1
+    assert pending[0]["id"] == did
+    assert pending[0]["send_date"] == "2026-08-02"
+
+
+def test_update_draft_status_removes_it_from_pending(db):
+    sid = db.create_scheduled_send("2026-08-02", "2026-08-02T18:00:00+00:00", "2026-08-02T17:00:00+00:00")
+    did = db.create_email_draft(sid, "<html></html>", ["1"], brevo_campaign_id=42)
+
+    db.update_draft_status(did, "approved")
+
+    assert db.list_pending_drafts() == []
+    draft = db.get_email_draft(did)
+    assert draft["status"] == "approved"
+    assert draft["decided_at"] is not None
+
+
+def test_has_draft_for_scheduled_send(db):
+    sid = db.create_scheduled_send("2026-08-02", "2026-08-02T18:00:00+00:00", "2026-08-02T17:00:00+00:00")
+    assert db.has_draft_for_scheduled_send(sid) is False
+    db.create_email_draft(sid, "<html></html>", ["1"], brevo_campaign_id=42)
+    assert db.has_draft_for_scheduled_send(sid) is True

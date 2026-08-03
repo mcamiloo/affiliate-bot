@@ -53,6 +53,22 @@ def render(offers: list[dict]) -> str:
         offers=offers,
         highlight_threshold=HIGHLIGHT_SCORE_THRESHOLD,
         generated_at=datetime.now().strftime("%d/%m/%Y %H:%M"),
+        telegram_invite_link=config.TELEGRAM_CHANNEL_INVITE_LINK,
+    )
+
+
+def render_privacy() -> str:
+    env = Environment(loader=FileSystemLoader(TEMPLATES_DIR), autoescape=True)
+    template = env.get_template("privacy.html.j2")
+    return template.render(
+        site_title=SITE_TITLE,
+        controller_name=config.BREVO_SENDER_NAME,
+        controller_email=config.BREVO_SENDER_EMAIL,
+        address_line1=config.NEWSLETTER_ADDRESS_LINE1,
+        address_city=config.NEWSLETTER_ADDRESS_CITY,
+        address_postal_code=config.NEWSLETTER_ADDRESS_POSTAL_CODE,
+        address_country=config.NEWSLETTER_ADDRESS_COUNTRY,
+        updated_at=datetime.now().strftime("%d %B %Y"),
     )
 
 
@@ -71,8 +87,12 @@ def main() -> None:
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(html, encoding="utf-8")
 
+    privacy_out = args.out.parent / "privacy.html"
+    privacy_out.write_text(render_privacy(), encoding="utf-8")
+
     with_image = sum(1 for o in offers if o["image_url"])
     print(f"✅ {len(offers)} oferta(s) renderizada(s) ({with_image} com imagem) -> {args.out}")
+    print(f"✅ Página de privacidade -> {privacy_out}")
 
 
 if __name__ == "__main__":

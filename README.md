@@ -7,7 +7,7 @@
 [![sqlite](https://img.shields.io/badge/sqlite-0969DA?style=flat-square)](https://github.com/topics/sqlite)
 [![telegram-bot](https://img.shields.io/badge/telegram--bot-0969DA?style=flat-square)](https://github.com/topics/telegram-bot)
 
-Bot que garimpa ofertas de eletrônicos/tech na [AliExpress Affiliate API](https://portals.aliexpress.com/), prioriza as com maior potencial de conversão em tráfego pago e publica automaticamente num canal do Telegram — sem repetir a mesma oferta duas vezes.
+Bot que garimpa ofertas de eletrônicos/tech na [AliExpress Affiliate API](https://portals.aliexpress.com/), prioriza as com maior potencial de conversão em tráfego pago e publica automaticamente num canal do Telegram (e, opcionalmente, espelhado numa comunidade do WhatsApp) — sem repetir a mesma oferta duas vezes.
 
 ## Como funciona
 
@@ -15,7 +15,7 @@ Bot que garimpa ofertas de eletrônicos/tech na [AliExpress Affiliate API](https
 2. **Filtra** — descarta o que não bate com o nicho e o que não tem desconto mínimo (`MIN_DISCOUNT_PERCENT`).
 3. **Pontua** — cada oferta candidata recebe um score (preço na faixa de "compra por impulso", desconto, apelo visual da categoria) que decide qual publicar primeiro.
 4. **Deduplica** — checa contra um SQLite local (`database/affiliate_bot.db`) pra nunca publicar o mesmo item duas vezes.
-5. **Publica** — envia a oferta escolhida pro Telegram e grava no banco.
+5. **Publica** — envia a oferta escolhida pro Telegram (e, se `WHATSAPP_ENABLED=true`, replica pra comunidade do WhatsApp logo em seguida) e grava no banco.
 
 Um ciclo publica no máximo 1 oferta e se repete em loop (`main.py`), no intervalo definido por `LOOP_INTERVAL_SECONDS`.
 
@@ -30,11 +30,13 @@ modules/
   aliexpress_client.py     # busca e filtro de ofertas na AliExpress
   orchestrator.py          # liga busca + score + publicação + persistência
   telegram_publisher.py    # envio da mensagem formatada pro Telegram
+  whatsapp_publisher.py    # espelha a oferta na comunidade do WhatsApp (automação de UI, opcional)
 database/
   db_manager.py            # SQLite: dedup, persistência, view/fórmula de score
 scripts/
   generate_landing_page.py # gera dist/index.html a partir de templates/landing.html.j2
   health_check.py          # checa se o bot tá rodando e notifica (macOS)
+  send_test_whatsapp_offer.py # teste manual pra calibrar a automação do WhatsApp
 launchd/                   # plists pra rodar como serviço no macOS
 tests/                     # suíte pytest
 ```
@@ -59,6 +61,8 @@ cp .env.example .env
 | `ALIEXPRESS_APP_KEY` / `ALIEXPRESS_APP_SECRET` | credenciais do Portal de Afiliados AliExpress |
 | `ALIEXPRESS_TRACKING_ID` | tracking ID pra garantir atribuição de comissão |
 | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | bot e canal de destino no Telegram |
+| `WHATSAPP_ENABLED` | liga/desliga o espelhamento no WhatsApp (padrão `false`) |
+| `WHATSAPP_COMMUNITY_NAME` | nome exato da comunidade/conversa no WhatsApp Desktop |
 | `MIN_DISCOUNT_PERCENT` | desconto mínimo pra uma oferta ser considerada (padrão 30) |
 | `MAX_OFFERS_PER_KEYWORD` | teto de publicações por palavra-chave por ciclo (padrão 3) |
 | `LOOP_INTERVAL_SECONDS` | intervalo entre ciclos em `main.py` (padrão 7200 = 2h) |
@@ -72,6 +76,18 @@ python main.py          # loop contínuo
 # ou, via Docker:
 docker compose up
 ```
+
+## WhatsApp (opcional)
+
+Não há API oficial simples/gratuita pra contas pessoais do WhatsApp — o espelhamento usa automação de UI do WhatsApp Desktop via `osascript`/System Events (`modules/whatsapp_publisher.py`), não uma API. É mais frágil que o Telegram e sujeita aos termos de uso do WhatsApp (uso pessoal moderado tende a passar batido; volume alto ou padrão muito robótico corre risco de restrição).
+
+Setup:
+
+1. Deixe o WhatsApp Desktop aberto e logado (precisa continuar aberto pro bot rodar via launchd).
+2. Conceda permissão de Acessibilidade ao Python em Ajustes do Sistema > Privacidade e Segurança > Acessibilidade.
+3. Preencha `WHATSAPP_COMMUNITY_NAME` no `.env` com o nome **exato** da conversa/comunidade como aparece na lista do WhatsApp.
+4. Rode `python scripts/send_test_whatsapp_offer.py` algumas vezes e ajuste as constantes `DELAY_*` no topo de `modules/whatsapp_publisher.py` até a automação abrir o chat certo e mandar a mensagem inteira, de forma confiável.
+5. Só então mude `WHATSAPP_ENABLED=true` no `.env` de produção.
 
 ## Deploy (macOS via launchd)
 

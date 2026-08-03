@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Fila de aprovação</h1>
+
+{% if not drafts %}
+<p class="muted">Nenhum rascunho pendente no momento.</p>
+{% endif %}
+
+{% for draft in drafts %}
+<div class="card">
+  <p>
+    <strong>Envio de {{ draft.send_date }}</strong>
+    <span class="muted">— horário-alvo {{ to_uk_local(draft.target_time_utc).strftime('%d/%m %H:%M') }} (UK)</span>
+  </p>
+  <p class="muted">{{ draft.offer_ids | length }} oferta(s) · campaign_id {{ draft.brevo_campaign_id }}</p>
+
+  <iframe src="{{ url_for('preview_draft', draft_id=draft.id) }}"></iframe>
+
+  <div style="margin-top: 0.8rem; display: flex; gap: 0.6rem;">
+    <form class="inline" method="post" action="{{ url_for('approve_draft', draft_id=draft.id) }}">
+      <button type="submit" class="btn-approve">✅ Aprovar</button>
+    </form>
+    <form class="inline" method="post" action="{{ url_for('reject_draft', draft_id=draft.id) }}"
+          onsubmit="return confirm('Rejeitar este rascunho? A campanha será cancelada no Brevo.');">
+      <button type="submit" class="btn-reject">✖ Rejeitar</button>
+    </form>
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

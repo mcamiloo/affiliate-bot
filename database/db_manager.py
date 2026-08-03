@@ -7,6 +7,7 @@ roda via launchd e pode ser reiniciado a qualquer momento).
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from pathlib import Path
 from typing import Any, Optional
@@ -29,6 +30,49 @@ CREATE TABLE IF NOT EXISTS posted_offers (
 );
 
 CREATE INDEX IF NOT EXISTS idx_posted_offers_item_id ON posted_offers (item_id);
+
+-- Espelho local dos contatos do Brevo (fonte de verdade é o Brevo — esta
+-- tabela é sincronizada por pull, nunca escrita diretamente por quem
+-- recebe o cadastro). Serve como registro de auditoria de consentimento
+-- (UK GDPR/PECR exige poder provar quando e como o consentimento foi
+-- dado, e o Brevo pode não reter esse histórico indefinidamente).
+CREATE TABLE IF NOT EXISTS subscribers (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    email             TEXT NOT NULL UNIQUE,
+    brevo_contact_id  INTEGER,
+    consented_at      TEXT,
+    status            TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'unsubscribed')),
+    synced_at         TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Um horário-alvo sorteado por dia, dentro da janela UK configurada.
+CREATE TABLE IF NOT EXISTS scheduled_sends (
+    id                          INTEGER PRIMARY KEY AUTOINCREMENT,
+    send_date                  TEXT NOT NULL UNIQUE,
+    target_time_utc            TEXT NOT NULL,
+    draft_generation_time_utc  TEXT NOT NULL,
+    status                      TEXT NOT NULL DEFAULT 'pending' CHECK (
+                                    status IN ('pending', 'draft_created', 'sent', 'cancelled')
+                                ),
+    created_at                  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Rascunho gerado ~1h antes do horário-alvo, aguardando aprovação manual
+-- no painel local antes de ir pro Brevo de fato.
+CREATE TABLE IF NOT EXISTS email_drafts (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    scheduled_send_id   INTEGER NOT NULL REFERENCES scheduled_sends (id),
+    html_content        TEXT NOT NULL,
+    offer_ids           TEXT,
+    brevo_campaign_id   INTEGER,
+    status              TEXT NOT NULL DEFAULT 'pending_approval' CHECK (
+                            status IN ('pending_approval', 'approved', 'sent', 'rejected')
+                        ),
+    created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+    decided_at          TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_email_drafts_status ON email_drafts (status);
 """
 
 # CREATE TABLE IF NOT EXISTS não adiciona colunas a uma tabela já existente
@@ -208,15 +252,200 @@ class DBManager:
         row = cursor.fetchone()
         return row["score"] if row is not None else None
 
-    def list_offers_by_score(self, limit: int = 60) -> list[dict[str, Any]]:
+    def list_offers_by_score(
+        self, limit: int = 60, since_hours: Optional[int] = None
+    ) -> list[dict[str, Any]]:
         """Ofertas ordenadas por score (desc) e, a critério de desempate,
-        pelas mais recentes primeiro — usado pela landing page.
+        pelas mais recentes primeiro — usado pela landing page e pela
+        newsletter (esta última passa since_hours pra só considerar
+        ofertas recentes, não o catálogo inteiro).
         """
+        if since_hours is not None:
+            cursor = self._conn.execute(
+                """
+                SELECT * FROM offer_scores
+                WHERE posted_at >= datetime('now', ?)
+                ORDER BY score DESC, posted_at DESC LIMIT ?;
+                """,
+                (f"-{since_hours} hours", limit),
+            )
+        else:
+            cursor = self._conn.execute(
+                "SELECT * FROM offer_scores ORDER BY score DESC, posted_at DESC LIMIT ?;",
+                (limit,),
+            )
+        return [dict(row) for row in cursor.fetchall()]
+
+    # --- subscribers (espelho do Brevo) ---------------------------------
+
+    def upsert_subscriber(
+        self,
+        email: str,
+        brevo_contact_id: Optional[int],
+        status: str,
+        consented_at: Optional[str] = None,
+    ) -> None:
+        """Insere ou atualiza um assinante a partir de um pull do Brevo."""
+        with self._conn:
+            self._conn.execute(
+                """
+                INSERT INTO subscribers (email, brevo_contact_id, status, consented_at, synced_at)
+                VALUES (?, ?, ?, ?, datetime('now'))
+                ON CONFLICT(email) DO UPDATE SET
+                    brevo_contact_id = excluded.brevo_contact_id,
+                    status = excluded.status,
+                    consented_at = COALESCE(subscribers.consented_at, excluded.consented_at),
+                    synced_at = excluded.synced_at;
+                """,
+                (email, brevo_contact_id, status, consented_at),
+            )
+
+    def list_active_subscribers(self) -> list[dict[str, Any]]:
         cursor = self._conn.execute(
-            "SELECT * FROM offer_scores ORDER BY score DESC, posted_at DESC LIMIT ?;",
-            (limit,),
+            "SELECT * FROM subscribers WHERE status = 'active' ORDER BY email;"
         )
         return [dict(row) for row in cursor.fetchall()]
+
+    def count_active_subscribers(self) -> int:
+        cursor = self._conn.execute(
+            "SELECT COUNT(*) FROM subscribers WHERE status = 'active';"
+        )
+        return cursor.fetchone()[0]
+
+    # --- scheduled_sends --------------------------------------------------
+
+    def get_scheduled_send_by_date(self, send_date: str) -> Optional[dict[str, Any]]:
+        cursor = self._conn.execute(
+            "SELECT * FROM scheduled_sends WHERE send_date = ?;", (send_date,)
+        )
+        row = cursor.fetchone()
+        return dict(row) if row is not None else None
+
+    def create_scheduled_send(
+        self, send_date: str, target_time_utc: str, draft_generation_time_utc: str
+    ) -> int:
+        with self._conn:
+            cursor = self._conn.execute(
+                """
+                INSERT INTO scheduled_sends (send_date, target_time_utc, draft_generation_time_utc)
+                VALUES (?, ?, ?);
+                """,
+                (send_date, target_time_utc, draft_generation_time_utc),
+            )
+            return cursor.lastrowid
+
+    def list_scheduled_sends(self, limit: int = 30) -> list[dict[str, Any]]:
+        cursor = self._conn.execute(
+            "SELECT * FROM scheduled_sends ORDER BY send_date DESC LIMIT ?;", (limit,)
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+    def get_scheduled_send(self, scheduled_send_id: int) -> Optional[dict[str, Any]]:
+        cursor = self._conn.execute(
+            "SELECT * FROM scheduled_sends WHERE id = ?;", (scheduled_send_id,)
+        )
+        row = cursor.fetchone()
+        return dict(row) if row is not None else None
+
+    def update_scheduled_send(
+        self,
+        scheduled_send_id: int,
+        target_time_utc: Optional[str] = None,
+        draft_generation_time_utc: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> None:
+        fields, values = [], []
+        if target_time_utc is not None:
+            fields.append("target_time_utc = ?")
+            values.append(target_time_utc)
+        if draft_generation_time_utc is not None:
+            fields.append("draft_generation_time_utc = ?")
+            values.append(draft_generation_time_utc)
+        if status is not None:
+            fields.append("status = ?")
+            values.append(status)
+        if not fields:
+            return
+        values.append(scheduled_send_id)
+        with self._conn:
+            self._conn.execute(
+                f"UPDATE scheduled_sends SET {', '.join(fields)} WHERE id = ?;", values
+            )
+
+    def delete_scheduled_send(self, scheduled_send_id: int) -> None:
+        with self._conn:
+            self._conn.execute(
+                "DELETE FROM email_drafts WHERE scheduled_send_id = ?;", (scheduled_send_id,)
+            )
+            self._conn.execute(
+                "DELETE FROM scheduled_sends WHERE id = ?;", (scheduled_send_id,)
+            )
+
+    # --- email_drafts -------------------------------------------------------
+
+    def create_email_draft(
+        self,
+        scheduled_send_id: int,
+        html_content: str,
+        offer_ids: list[str],
+        brevo_campaign_id: Optional[int],
+    ) -> int:
+        with self._conn:
+            cursor = self._conn.execute(
+                """
+                INSERT INTO email_drafts (scheduled_send_id, html_content, offer_ids, brevo_campaign_id)
+                VALUES (?, ?, ?, ?);
+                """,
+                (scheduled_send_id, html_content, json.dumps(offer_ids), brevo_campaign_id),
+            )
+            return cursor.lastrowid
+
+    def list_pending_drafts(self) -> list[dict[str, Any]]:
+        cursor = self._conn.execute(
+            """
+            SELECT email_drafts.*, scheduled_sends.send_date, scheduled_sends.target_time_utc
+            FROM email_drafts
+            JOIN scheduled_sends ON scheduled_sends.id = email_drafts.scheduled_send_id
+            WHERE email_drafts.status = 'pending_approval'
+            ORDER BY email_drafts.created_at;
+            """
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+    def get_email_draft(self, draft_id: int) -> Optional[dict[str, Any]]:
+        cursor = self._conn.execute(
+            """
+            SELECT email_drafts.*, scheduled_sends.send_date, scheduled_sends.target_time_utc
+            FROM email_drafts
+            JOIN scheduled_sends ON scheduled_sends.id = email_drafts.scheduled_send_id
+            WHERE email_drafts.id = ?;
+            """,
+            (draft_id,),
+        )
+        row = cursor.fetchone()
+        return dict(row) if row is not None else None
+
+    def has_draft_for_scheduled_send(self, scheduled_send_id: int) -> bool:
+        cursor = self._conn.execute(
+            "SELECT 1 FROM email_drafts WHERE scheduled_send_id = ? LIMIT 1;",
+            (scheduled_send_id,),
+        )
+        return cursor.fetchone() is not None
+
+    def get_draft_by_scheduled_send(self, scheduled_send_id: int) -> Optional[dict[str, Any]]:
+        cursor = self._conn.execute(
+            "SELECT * FROM email_drafts WHERE scheduled_send_id = ? LIMIT 1;",
+            (scheduled_send_id,),
+        )
+        row = cursor.fetchone()
+        return dict(row) if row is not None else None
+
+    def update_draft_status(self, draft_id: int, status: str) -> None:
+        with self._conn:
+            self._conn.execute(
+                "UPDATE email_drafts SET status = ?, decided_at = datetime('now') WHERE id = ?;",
+                (status, draft_id),
+            )
 
     def close(self) -> None:
         self._conn.close()
