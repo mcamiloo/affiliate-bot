@@ -16,6 +16,11 @@
     --accent: #ff5f6d;
     --accent-2: #ffc371;
     --border: #262b3a;
+    --ig-1: #4f5bd5;
+    --ig-2: #962fbf;
+    --ig-3: #d62976;
+    --ig-4: #fa7e1e;
+    --ig-5: #feda75;
   }
   @media (prefers-color-scheme: light) {
     :root {
@@ -30,39 +35,82 @@
     }
   }
   * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
   body {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     background: var(--bg);
     color: var(--text);
+    position: relative;
+    overflow-x: hidden;
   }
-  header {
-    padding: 2.5rem 1.5rem 1.5rem;
-    text-align: center;
+
+  /* --- Fundo ambiente: manchas de gradiente à deriva + grade de pontos,
+     bem sutil, só pra dar textura "tech" sem disputar atenção com os
+     cards. Fixed + baixa opacidade + blur pesado = não atrapalha leitura. --- */
+  .ambient { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+  .ambient::before {
+    content: ""; position: absolute; inset: 0;
+    background-image: radial-gradient(color-mix(in srgb, var(--text) 14%, transparent) 1px, transparent 1px);
+    background-size: 28px 28px;
+    opacity: 0.35;
+    mask-image: radial-gradient(ellipse 60% 50% at 50% 0%, #000 40%, transparent 80%);
   }
+  .blob { position: absolute; border-radius: 50%; filter: blur(70px); opacity: 0.35; }
+  .blob-1 { width: 420px; height: 420px; top: -120px; left: -100px; background: var(--accent); animation: drift1 26s ease-in-out infinite; }
+  .blob-2 { width: 380px; height: 380px; top: 40px; right: -120px; background: var(--accent-2); animation: drift2 32s ease-in-out infinite; }
+  @keyframes drift1 { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(60px, 40px); } }
+  @keyframes drift2 { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(-50px, 60px); } }
+
+  header { position: relative; z-index: 1; padding: 3rem 1.5rem 1.5rem; text-align: center; }
+  .live-badge {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase;
+    color: var(--text-muted); background: var(--surface); border: 1px solid var(--border);
+    padding: 0.35rem 0.8rem; border-radius: 999px; margin-bottom: 1rem;
+  }
+  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #35c46f; animation: pulse 1.8s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(53,196,111,0.5); } 50% { opacity: 0.6; box-shadow: 0 0 0 5px rgba(53,196,111,0); } }
   header h1 {
-    margin: 0 0 0.4rem;
-    font-size: clamp(1.6rem, 4vw, 2.4rem);
+    margin: 0 0 0.5rem;
+    font-size: clamp(2rem, 5.5vw, 3.2rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
     background: linear-gradient(90deg, var(--accent), var(--accent-2));
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
   }
-  header p {
-    margin: 0;
-    color: var(--text-muted);
-    font-size: 0.95rem;
+  header p.subtitle { margin: 0 auto; max-width: 480px; color: var(--text-muted); font-size: 1rem; }
+
+  .stats-strip { display: flex; justify-content: center; gap: 2.2rem; margin: 1.6rem 0 1.8rem; flex-wrap: wrap; }
+  .stat { text-align: center; }
+  .stat .num { font-size: 1.6rem; font-weight: 800; color: var(--text); }
+  .stat .lbl { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+
+  .channels { display: flex; justify-content: center; gap: 0.7rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+  .channel-btn {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    text-decoration: none; font-weight: 700; font-size: 0.88rem; color: #fff;
+    padding: 0.65rem 1.1rem; border-radius: 999px;
+    opacity: 0; transform: translateY(10px);
+    animation: rise 0.5s ease forwards;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
   }
-  main {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 1.5rem 3rem;
-  }
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 1.1rem;
-  }
+  .channel-btn:nth-child(1) { animation-delay: 0.05s; }
+  .channel-btn:nth-child(2) { animation-delay: 0.15s; }
+  .channel-btn:nth-child(3) { animation-delay: 0.25s; }
+  .channel-btn:hover { transform: translateY(-2px); filter: brightness(1.08); }
+  .channel-btn:active { transform: translateY(0); }
+  .channel-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+  .channel-btn.telegram { background: #229ed9; box-shadow: 0 6px 20px -8px #229ed9aa; }
+  .channel-btn.instagram { background: linear-gradient(135deg, var(--ig-5), var(--ig-4), var(--ig-3), var(--ig-2), var(--ig-1)); box-shadow: 0 6px 20px -8px #d6297688; }
+  .channel-btn.email { background: linear-gradient(90deg, var(--accent), var(--accent-2)); box-shadow: 0 6px 20px -8px color-mix(in srgb, var(--accent) 60%, transparent); }
+  @keyframes rise { to { opacity: 1; transform: translateY(0); } }
+
+  main { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 0 1.5rem 3rem; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1.1rem; }
   .card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -72,188 +120,117 @@
     flex-direction: column;
     text-decoration: none;
     color: inherit;
-    transition: transform 0.15s ease, border-color 0.15s ease;
+    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+    opacity: 0; transform: translateY(18px);
   }
+  .card.is-visible { animation: rise-fade 0.55s ease forwards; }
+  @keyframes rise-fade { to { opacity: 1; transform: translateY(0); } }
   .card:hover {
-    transform: translateY(-3px);
+    transform: translateY(-5px);
     border-color: var(--accent);
+    box-shadow: 0 14px 32px -14px color-mix(in srgb, var(--accent) 55%, transparent);
   }
   .card.top-pick {
     border-color: var(--accent-2);
     box-shadow: 0 0 0 1px var(--accent-2), 0 8px 24px -8px color-mix(in srgb, var(--accent-2) 60%, transparent);
   }
+  .card.top-pick:hover { box-shadow: 0 0 0 1px var(--accent-2), 0 16px 34px -12px color-mix(in srgb, var(--accent-2) 70%, transparent); }
   .top-pick-badge {
-    position: absolute;
-    top: 0.5rem;
-    right: 0.5rem;
+    position: absolute; top: 0.5rem; right: 0.5rem;
     background: linear-gradient(90deg, var(--accent), var(--accent-2));
-    color: #fff;
-    font-size: 0.7rem;
-    font-weight: 700;
-    padding: 0.2rem 0.5rem;
-    border-radius: 999px;
-    white-space: nowrap;
+    color: #fff; font-size: 0.7rem; font-weight: 700;
+    padding: 0.2rem 0.5rem; border-radius: 999px; white-space: nowrap;
   }
-  .card-image {
-    aspect-ratio: 1 / 1;
-    background: var(--surface-2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    position: relative;
-  }
-  .card-image img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  .card-image .placeholder {
-    color: var(--text-muted);
-    font-size: 2rem;
-  }
-  .badge {
-    position: absolute;
-    top: 0.5rem;
-    left: 0.5rem;
-    background: var(--accent);
-    color: #fff;
-    font-size: 0.75rem;
-    font-weight: 700;
-    padding: 0.2rem 0.5rem;
-    border-radius: 999px;
-  }
-  .card-body {
-    padding: 0.85rem 0.9rem 1rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-    flex: 1;
-  }
-  .card-title {
-    font-size: 0.88rem;
-    line-height: 1.35;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    min-height: 2.4em;
-  }
-  .price-row {
-    margin-top: auto;
-    display: flex;
-    align-items: baseline;
-    gap: 0.45rem;
-  }
-  .price {
-    font-size: 1.05rem;
-    font-weight: 700;
-    color: var(--accent);
-  }
-  .price-original {
-    font-size: 0.8rem;
-    color: var(--text-muted);
-    text-decoration: line-through;
-  }
-  footer {
-    text-align: center;
-    padding: 2rem 1.5rem 3rem;
-    color: var(--text-muted);
-    font-size: 0.78rem;
-    line-height: 1.6;
-  }
-  .empty-state {
-    text-align: center;
-    padding: 4rem 1rem;
-    color: var(--text-muted);
-  }
+  .card-image { aspect-ratio: 1 / 1; background: var(--surface-2); display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; }
+  .card-image img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s ease; }
+  .card:hover .card-image img { transform: scale(1.06); }
+  .card-image .placeholder { color: var(--text-muted); font-size: 2rem; }
+  .badge { position: absolute; top: 0.5rem; left: 0.5rem; background: var(--accent); color: #fff; font-size: 0.75rem; font-weight: 700; padding: 0.2rem 0.5rem; border-radius: 999px; }
+  .card-body { padding: 0.85rem 0.9rem 1rem; display: flex; flex-direction: column; gap: 0.4rem; flex: 1; }
+  .card-title { font-size: 0.88rem; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.4em; }
+  .price-row { margin-top: auto; display: flex; align-items: baseline; gap: 0.45rem; }
+  .price { font-size: 1.05rem; font-weight: 700; color: var(--accent); }
+  .price-original { font-size: 0.8rem; color: var(--text-muted); text-decoration: line-through; }
+
+  footer { position: relative; z-index: 1; text-align: center; padding: 2.5rem 1.5rem 3rem; color: var(--text-muted); font-size: 0.78rem; line-height: 1.6; }
+  .footer-channels { display: flex; justify-content: center; gap: 0.9rem; margin-bottom: 1rem; }
+  .footer-channels a { color: var(--text-muted); transition: color 0.2s ease; }
+  .footer-channels a:hover { color: var(--text); }
+  .footer-channels svg { width: 20px; height: 20px; }
+
+  .empty-state { text-align: center; padding: 4rem 1rem; color: var(--text-muted); }
+
   .signup-section {
-    max-width: 560px;
-    margin: 0 auto 2.5rem;
-    padding: 1.5rem 1.5rem 1.75rem;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 14px;
+    max-width: 560px; margin: 0 auto 2.5rem; padding: 1.5rem 1.5rem 1.75rem;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    scroll-margin-top: 2rem;
   }
-  .telegram-btn {
-    display: block;
-    text-align: center;
-    text-decoration: none;
-    font-weight: 700;
-    font-size: 0.95rem;
-    color: #fff;
-    background: #229ed9;
-    padding: 0.75rem 1rem;
-    border-radius: 10px;
-    margin-bottom: 1.25rem;
-  }
-  .signup-divider {
-    text-align: center;
-    color: var(--text-muted);
-    font-size: 0.78rem;
-    margin: 0 0 1.25rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
+  .signup-section.pulse-target { animation: target-pulse 1.4s ease; }
+  @keyframes target-pulse { 0%, 100% { box-shadow: none; } 30% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 50%, transparent); } }
+  .signup-divider { text-align: center; color: var(--text-muted); font-size: 0.78rem; margin: 0 0 1.25rem; text-transform: uppercase; letter-spacing: 0.05em; }
   .subscribe-form input[type="email"] {
-    width: 100%;
-    padding: 0.7rem 0.85rem;
-    font-size: 0.95rem;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg);
-    color: var(--text);
-    margin-bottom: 0.85rem;
+    width: 100%; padding: 0.7rem 0.85rem; font-size: 0.95rem;
+    border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text);
+    margin-bottom: 0.85rem; transition: border-color 0.2s ease, box-shadow 0.2s ease;
   }
-  .consent-row {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.6rem;
-    margin-bottom: 1rem;
+  .subscribe-form input[type="email"]:focus {
+    outline: none; border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
   }
-  .consent-row input[type="checkbox"] {
-    margin-top: 0.2rem;
-    flex-shrink: 0;
-  }
-  .consent-row label {
-    font-size: 0.82rem;
-    line-height: 1.5;
-    color: var(--text-muted);
-  }
-  .consent-row a {
-    color: var(--text);
-  }
+  .consent-row { display: flex; align-items: flex-start; gap: 0.6rem; margin-bottom: 1rem; }
+  .consent-row input[type="checkbox"] { margin-top: 0.2rem; flex-shrink: 0; }
+  .consent-row label { font-size: 0.82rem; line-height: 1.5; color: var(--text-muted); }
+  .consent-row a { color: var(--text); }
   .subscribe-form button {
-    width: 100%;
-    padding: 0.75rem;
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: #fff;
+    width: 100%; padding: 0.75rem; font-size: 0.95rem; font-weight: 700; color: #fff;
     background: linear-gradient(90deg, var(--accent), var(--accent-2));
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
+    border: none; border-radius: 8px; cursor: pointer;
+    transition: transform 0.15s ease, filter 0.15s ease;
   }
-  .form-message {
-    margin-top: 0.85rem;
-    font-size: 0.85rem;
-    text-align: center;
-    display: none;
-  }
+  .subscribe-form button:hover { filter: brightness(1.08); }
+  .subscribe-form button:active { transform: scale(0.98); }
+  .form-message { margin-top: 0.85rem; font-size: 0.85rem; text-align: center; display: none; }
   .form-message.visible { display: block; }
   .form-message.success { color: #35c46f; }
   .form-message.error { color: var(--accent); }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+    .blob { display: none; }
+  }
 </style>
 </head>
 <body>
+<div class="ambient"><div class="blob blob-1"></div><div class="blob blob-2"></div></div>
+
 <header>
+  <span class="live-badge"><span class="live-dot"></span> Atualizado {{ generated_at }}</span>
   <h1>{{ site_title }}</h1>
-  <p>{{ site_description }}</p>
+  <p class="subtitle">{{ site_description }}</p>
+
+  <div class="stats-strip">
+    <div class="stat"><div class="num" data-count-to="{{ offers_total }}">0</div><div class="lbl">ofertas publicadas</div></div>
+    <div class="stat"><div class="num">24/7</div><div class="lbl">garimpo automático</div></div>
+  </div>
+
+  <div class="channels">
+    <a class="channel-btn telegram" href="{{ telegram_invite_link }}" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+      Telegram
+    </a>
+    <a class="channel-btn instagram" href="{{ instagram_profile_url }}" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
+      Instagram
+    </a>
+    <a class="channel-btn email" href="#subscribe">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+      Email
+    </a>
+  </div>
 </header>
 
-<div class="signup-section">
-  <a class="telegram-btn" href="{{ telegram_invite_link }}" target="_blank" rel="noopener">📣 Join our Telegram</a>
-  <p class="signup-divider">or get today's deals by email</p>
+<div class="signup-section" id="subscribe">
+  <p class="signup-divider">Get today's hand-picked deals by email</p>
 
   <form class="subscribe-form" id="subscribe-form">
     <input type="email" name="email" placeholder="you@example.com" required autocomplete="email">
@@ -307,10 +284,69 @@
   {% endif %}
 </main>
 <footer>
+  <div class="footer-channels">
+    <a href="{{ telegram_invite_link }}" target="_blank" rel="noopener" aria-label="Telegram">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+    </a>
+    <a href="{{ instagram_profile_url }}" target="_blank" rel="noopener" aria-label="Instagram">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
+    </a>
+    <a href="#subscribe" aria-label="Email">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+    </a>
+  </div>
   Contains affiliate links — we may earn a commission on purchases made through them, at no extra cost to you.<br>
   Generated on {{ generated_at }}. · <a href="privacy.html" style="color:inherit;">Privacy Policy</a>
+  <p style="margin: 0.9rem 0 0; opacity: 0.7;">
+    © {{ current_year }} {{ brand_name }}. All rights reserved. ·
+    Developed by <a href="https://github.com/mcamiloo" target="_blank" rel="noopener" style="color:inherit; font-weight:600;">mcamiloo</a>
+  </p>
 </footer>
 <script>
+  var prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Highlight do card de assinatura ao chegar via âncora "Email".
+  document.querySelectorAll('a[href="#subscribe"]').forEach(function (link) {
+    link.addEventListener('click', function () {
+      var section = document.getElementById('subscribe');
+      section.classList.remove('pulse-target');
+      void section.offsetWidth; // força reflow pra poder re-disparar a animação
+      section.classList.add('pulse-target');
+    });
+  });
+
+  // Contador subindo até o total real de ofertas — só estética, sem
+  // nenhuma lógica de negócio (o número final já vem pronto do servidor).
+  document.querySelectorAll('[data-count-to]').forEach(function (el) {
+    var target = parseInt(el.getAttribute('data-count-to'), 10) || 0;
+    if (prefersReducedMotion || target === 0) { el.textContent = target; return; }
+    var start = performance.now();
+    var duration = 900;
+    function tick(now) {
+      var progress = Math.min((now - start) / duration, 1);
+      el.textContent = Math.round(progress * target);
+      if (progress < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  });
+
+  // Cards aparecem com fade+slide conforme entram na tela, em vez de
+  // tudo de uma vez — leve, cancelado de vez pra quem prefere menos movimento.
+  var cards = document.querySelectorAll('.card');
+  if (prefersReducedMotion || !('IntersectionObserver' in window)) {
+    cards.forEach(function (card) { card.style.opacity = 1; card.style.transform = 'none'; });
+  } else {
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry, i) {
+        if (entry.isIntersecting) {
+          setTimeout(function () { entry.target.classList.add('is-visible'); }, (i % 4) * 60);
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+    cards.forEach(function (card) { observer.observe(card); });
+  }
+
   document.getElementById('subscribe-form').addEventListener('submit', async function (event) {
     event.preventDefault();
     const form = event.target;

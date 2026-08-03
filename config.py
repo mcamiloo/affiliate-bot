@@ -81,6 +81,7 @@ ALIEXPRESS_TRACKING_ID = os.getenv("ALIEXPRESS_TRACKING_ID", "")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 TELEGRAM_CHANNEL_INVITE_LINK = os.getenv("TELEGRAM_CHANNEL_INVITE_LINK", "")
+INSTAGRAM_PROFILE_URL = os.getenv("INSTAGRAM_PROFILE_URL", "")
 
 # WhatsApp — automação de UI do WhatsApp Desktop (sem API oficial, ver
 # modules/whatsapp_publisher.py). Desligado por padrão: só liga depois de

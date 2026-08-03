@@ -44,6 +44,13 @@ def fetch_offers(limit: int) -> list[dict]:
         return db.list_offers_by_score(limit=limit)
 
 
+def count_total_offers() -> int:
+    """Total histórico (não só as exibidas) — vira o número de destaque
+    da faixa de estatísticas do hero, pra dar sensação de volume real."""
+    with DBManager() as db:
+        return db.count_offers()
+
+
 def render(offers: list[dict]) -> str:
     env = Environment(loader=FileSystemLoader(TEMPLATES_DIR), autoescape=True)
     template = env.get_template("landing.html.j2")
@@ -54,6 +61,13 @@ def render(offers: list[dict]) -> str:
         highlight_threshold=HIGHLIGHT_SCORE_THRESHOLD,
         generated_at=datetime.now().strftime("%d/%m/%Y %H:%M"),
         telegram_invite_link=config.TELEGRAM_CHANNEL_INVITE_LINK,
+        instagram_profile_url=config.INSTAGRAM_PROFILE_URL,
+        offers_total=count_total_offers(),
+        current_year=datetime.now().year,
+        # site_title é a tagline ("Tech & Gaming Deals"), não a marca de
+        # verdade — o rodapé/copyright usa o mesmo nome do Telegram/
+        # Instagram/remetente do email (BREVO_SENDER_NAME).
+        brand_name=config.BREVO_SENDER_NAME,
     )
 
 

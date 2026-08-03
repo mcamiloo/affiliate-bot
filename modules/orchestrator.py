@@ -18,6 +18,7 @@ from database.db_manager import DBManager, compute_score
 from modules.aliexpress_client import discover_new_offers
 from modules.telegram_publisher import publish_offer
 from modules.whatsapp_publisher import publish_offer as publish_offer_whatsapp
+from utils.offer_title import clean_offer_title
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,10 @@ def process_keyword(keyword: str, db: DBManager) -> int:
 
     published = 0
     for offer in offers[: config.MAX_OFFERS_PER_KEYWORD]:
+        # Limpo uma única vez aqui — Telegram, WhatsApp e o banco (de onde
+        # newsletter/landing page/painel leem depois) usam esse mesmo
+        # offer.title daqui em diante, então ficam todos consistentes.
+        offer.title = clean_offer_title(offer.title)
         try:
             publish_offer(
                 title=offer.title,
