@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{ site_title }}</title>
 <meta name="description" content="{{ site_description }}">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-100 -100 200 190'%3E%3Cg fill='%23ff5f6d'%3E%3Cpath d='M -25,-90 L -65,-90 L -90,-60 L -90,0 L -65,30 L -65,-35 L -45,-35 L -25,-60 Z'/%3E%3Cpath d='M -65,45 L -45,75 L -15,75 L -15,45 L -40,15 L -65,15 Z'/%3E%3Cpath d='M -15,-20 L -35,-20 L -50,0 L -35,20 L -15,20 Z'/%3E%3Cpath d='M 25,-90 L 65,-90 L 90,-60 L 90,0 L 65,30 L 65,-35 L 45,-35 L 25,-60 Z'/%3E%3Cpath d='M 65,45 L 45,75 L 15,75 L 15,45 L 40,15 L 65,15 Z'/%3E%3Cpath d='M 15,-20 L 35,-20 L 50,0 L 35,20 L 15,20 Z'/%3E%3Crect x='-5' y='-80' width='10' height='40'/%3E%3Crect x='-5' y='50' width='10' height='30'/%3E%3C/g%3E%3C/svg%3E">
 <style>
   :root {
     color-scheme: light dark;
@@ -63,6 +64,12 @@
   @keyframes drift2 { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(-50px, 60px); } }
 
   header { position: relative; z-index: 1; padding: 3rem 1.5rem 1.5rem; text-align: center; }
+  .brand-mark {
+    width: 62px; height: 59px;
+    opacity: 0; transform: scale(0.7) rotate(-10deg);
+    animation: mark-in 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+  @keyframes mark-in { to { opacity: 1; transform: scale(1) rotate(0); } }
   .live-badge {
     display: inline-flex; align-items: center; gap: 0.4rem;
     font-size: 0.72rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase;
@@ -204,7 +211,25 @@
 <div class="ambient"><div class="blob blob-1"></div><div class="blob blob-2"></div></div>
 
 <header>
-  <span class="live-badge"><span class="live-dot"></span> Atualizado {{ generated_at }}</span>
+  <svg class="brand-mark" viewBox="-100 -100 200 190" role="img" aria-label="{{ brand_name }} emblem">
+    <defs>
+      <linearGradient id="brandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="var(--accent)"/>
+        <stop offset="100%" stop-color="var(--accent-2)"/>
+      </linearGradient>
+    </defs>
+    <g fill="url(#brandGrad)">
+      <path d="M -25,-90 L -65,-90 L -90,-60 L -90,0 L -65,30 L -65,-35 L -45,-35 L -25,-60 Z"/>
+      <path d="M -65,45 L -45,75 L -15,75 L -15,45 L -40,15 L -65,15 Z"/>
+      <path d="M -15,-20 L -35,-20 L -50,0 L -35,20 L -15,20 Z"/>
+      <path d="M 25,-90 L 65,-90 L 90,-60 L 90,0 L 65,30 L 65,-35 L 45,-35 L 25,-60 Z"/>
+      <path d="M 65,45 L 45,75 L 15,75 L 15,45 L 40,15 L 65,15 Z"/>
+      <path d="M 15,-20 L 35,-20 L 50,0 L 35,20 L 15,20 Z"/>
+      <rect x="-5" y="-80" width="10" height="40"/>
+      <rect x="-5" y="50" width="10" height="30"/>
+    </g>
+  </svg>
+  <span class="live-badge"><span class="live-dot"></span> Updated {{ generated_at }}</span>
   <h1>{{ site_title }}</h1>
   <p class="subtitle">{{ site_description }}</p>
 
