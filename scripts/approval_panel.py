@@ -36,6 +36,7 @@ import config
 from database.db_manager import DBManager
 from modules import brevo_client, newsletter
 from scripts.health_check import job_is_loaded, last_successful_cycle
+from scripts.newsletter_scheduler import sync_subscribers
 from utils.headlines import pick_offer_headline
 from utils.unsubscribe import compute_unsub_token, verify_unsub_token
 
@@ -403,6 +404,18 @@ def subscribers():
     with DBManager() as db:
         rows = db.list_subscribers(search=search or None)
     return render_template("subscribers.html", subscribers=rows, search=search)
+
+
+@app.route("/subscribers/sync", methods=["POST"])
+def subscribers_sync():
+    """Sincroniza a tabela local com o Brevo sob demanda — o agendador já
+    faz isso sozinho de tempos em tempos (ver NEWSLETTER_SUBSCRIBER_SYNC_
+    EVERY_N_POLLS), mas quem confirmou o opt-in há poucos minutos pode
+    ainda não aparecer aqui até o próximo ciclo automático."""
+    with DBManager() as db:
+        sync_subscribers(db)
+    flash("Assinantes sincronizados com o Brevo.")
+    return redirect(url_for("subscribers"))
 
 
 @app.route("/newsletter/stats")

@@ -1,6 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Assinantes</h1>
+<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.6rem;">
+  <h1 style="margin:0;">Assinantes</h1>
+  <form method="post" action="{{ url_for('subscribers_sync') }}">
+    <button type="submit" class="btn-secondary">↻ Sincronizar agora</button>
+  </form>
+</div>
+<p class="muted" style="margin-top:-0.5rem;">Sincroniza sozinho a cada ~1h — use o botão se alguém confirmou o cadastro há pouco e ainda não apareceu aqui.</p>
 
 {% set active_count = subscribers | selectattr("status", "equalto", "active") | list | length %}
 <div class="stat-row">

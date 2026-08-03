@@ -731,6 +731,24 @@ def test_subscribers_requires_login(anon_client):
     assert "/login" in response.headers["Location"]
 
 
+def test_subscribers_sync_pulls_from_brevo(client):
+    contacts = [{"email": "fresh@x.com", "id": 1, "emailBlacklisted": False, "attributes": {}}]
+    with patch.object(approval_panel, "sync_subscribers", wraps=approval_panel.sync_subscribers) as sync_mock, \
+         patch("scripts.newsletter_scheduler.brevo_client.list_list_contacts", return_value=contacts):
+        response = client.post("/subscribers/sync")
+
+    assert response.status_code == 302
+    sync_mock.assert_called_once()
+    with DBManager() as db:
+        assert any(s["email"] == "fresh@x.com" for s in db.list_subscribers())
+
+
+def test_subscribers_sync_requires_login(anon_client):
+    response = anon_client.post("/subscribers/sync")
+    assert response.status_code == 302
+    assert "/login" in response.headers["Location"]
+
+
 def test_newsletter_stats_shows_campaign_event_counts(client):
     draft_id = _create_draft(timedelta(hours=-2), campaign_id=42)
     with DBManager() as db:
