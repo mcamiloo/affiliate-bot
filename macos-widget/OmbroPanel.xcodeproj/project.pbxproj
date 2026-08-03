@@ -1,0 +1,459 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		04F13B56BE407D35C5E3724A /* DataStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F5B311414376FACD9AC04D8 /* DataStore.swift */; };
+		0C69D3853629A5017E3455AC /* SmallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41096D373F163C9D9EF340CE /* SmallView.swift */; };
+		1B1D2ED71451D3245FDE2D65 /* LargeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B49D1B1377BAAA768100478E /* LargeView.swift */; };
+		6D056B7C6A870440FE4D53A9 /* Provider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F881353CC0532801C032AE7C /* Provider.swift */; };
+		73F55276405D2824D2C4E423 /* OmbroPanelApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF388DC0494704A7DBE52946 /* OmbroPanelApp.swift */; };
+		7D637E20D8D86A16CCD0CCD9 /* RunCycleIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C7C1473686D063DC8C92465 /* RunCycleIntent.swift */; };
+		BEA1B4F444D2802747D230BC /* MediumView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F21D4F7B9D1858F463CD93ED /* MediumView.swift */; };
+		D44268B8038CC73E3F0FC3C4 /* OmbroPanelWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 058D895FC590D39A4B1E0093 /* OmbroPanelWidget.swift */; };
+		D9B7A3044AD06A4AAECD92CF /* Shared.swift in Sources */ = {isa = PBXBuildFile; fileRef = B23EA5503F50BD15B3C465F2 /* Shared.swift */; };
+		E351CBF045E29AF8FABB5879 /* OmbroPanelWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 69C6F3A627D1E07481DFBEFE /* OmbroPanelWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		C045BA73F71F9B15FB4C8E65 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FA3FCA5BE51DB5FE51E32BC2 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6F9B80D50C99E23B710E5C23;
+			remoteInfo = OmbroPanelWidgetExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		3807F5C5E9A79477C5677986 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				E351CBF045E29AF8FABB5879 /* OmbroPanelWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		058D895FC590D39A4B1E0093 /* OmbroPanelWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmbroPanelWidget.swift; sourceTree = "<group>"; };
+		3C7C1473686D063DC8C92465 /* RunCycleIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunCycleIntent.swift; sourceTree = "<group>"; };
+		41096D373F163C9D9EF340CE /* SmallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmallView.swift; sourceTree = "<group>"; };
+		69C6F3A627D1E07481DFBEFE /* OmbroPanelWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = OmbroPanelWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		82D6C1E6361D305F96B0DDD9 /* OmbroPanel.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OmbroPanel.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9F5B311414376FACD9AC04D8 /* DataStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataStore.swift; sourceTree = "<group>"; };
+		B23EA5503F50BD15B3C465F2 /* Shared.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shared.swift; sourceTree = "<group>"; };
+		B49D1B1377BAAA768100478E /* LargeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LargeView.swift; sourceTree = "<group>"; };
+		CF388DC0494704A7DBE52946 /* OmbroPanelApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmbroPanelApp.swift; sourceTree = "<group>"; };
+		F21D4F7B9D1858F463CD93ED /* MediumView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediumView.swift; sourceTree = "<group>"; };
+		F881353CC0532801C032AE7C /* Provider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Provider.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		1336290E1724E1A58269E258 /* OmbroPanel */ = {
+			isa = PBXGroup;
+			children = (
+				CF388DC0494704A7DBE52946 /* OmbroPanelApp.swift */,
+			);
+			path = OmbroPanel;
+			sourceTree = "<group>";
+		};
+		4E9A2B81A138EDC9C9EA1D9F /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				82D6C1E6361D305F96B0DDD9 /* OmbroPanel.app */,
+				69C6F3A627D1E07481DFBEFE /* OmbroPanelWidgetExtension.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		6E4E929D88368E6BE9301F85 /* OmbroPanelWidget */ = {
+			isa = PBXGroup;
+			children = (
+				9F5B311414376FACD9AC04D8 /* DataStore.swift */,
+				058D895FC590D39A4B1E0093 /* OmbroPanelWidget.swift */,
+				F881353CC0532801C032AE7C /* Provider.swift */,
+				3C7C1473686D063DC8C92465 /* RunCycleIntent.swift */,
+				D736B51DF2E213C79EE7DB89 /* Views */,
+			);
+			path = OmbroPanelWidget;
+			sourceTree = "<group>";
+		};
+		82A428F731F3E519FBFEDE9F = {
+			isa = PBXGroup;
+			children = (
+				1336290E1724E1A58269E258 /* OmbroPanel */,
+				6E4E929D88368E6BE9301F85 /* OmbroPanelWidget */,
+				4E9A2B81A138EDC9C9EA1D9F /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		D736B51DF2E213C79EE7DB89 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				B49D1B1377BAAA768100478E /* LargeView.swift */,
+				F21D4F7B9D1858F463CD93ED /* MediumView.swift */,
+				B23EA5503F50BD15B3C465F2 /* Shared.swift */,
+				41096D373F163C9D9EF340CE /* SmallView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		6F9B80D50C99E23B710E5C23 /* OmbroPanelWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 81F57166E40509627DDF8F79 /* Build configuration list for PBXNativeTarget "OmbroPanelWidgetExtension" */;
+			buildPhases = (
+				58C64E6D4029D4BD89DF9F1C /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = OmbroPanelWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = OmbroPanelWidgetExtension;
+			productReference = 69C6F3A627D1E07481DFBEFE /* OmbroPanelWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		A2534B17422514F93281C45F /* OmbroPanel */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DB4066A60F1089D728A47D9D /* Build configuration list for PBXNativeTarget "OmbroPanel" */;
+			buildPhases = (
+				5392B88A2798662B7F53C505 /* Sources */,
+				3807F5C5E9A79477C5677986 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				BAA3684C1DE505A7D5DB5566 /* PBXTargetDependency */,
+			);
+			name = OmbroPanel;
+			packageProductDependencies = (
+			);
+			productName = OmbroPanel;
+			productReference = 82D6C1E6361D305F96B0DDD9 /* OmbroPanel.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		FA3FCA5BE51DB5FE51E32BC2 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					6F9B80D50C99E23B710E5C23 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Manual;
+					};
+					A2534B17422514F93281C45F = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Manual;
+					};
+				};
+			};
+			buildConfigurationList = 078911B951AB52750F708A6E /* Build configuration list for PBXProject "OmbroPanel" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 82A428F731F3E519FBFEDE9F;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 4E9A2B81A138EDC9C9EA1D9F /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A2534B17422514F93281C45F /* OmbroPanel */,
+				6F9B80D50C99E23B710E5C23 /* OmbroPanelWidgetExtension */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		5392B88A2798662B7F53C505 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				73F55276405D2824D2C4E423 /* OmbroPanelApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		58C64E6D4029D4BD89DF9F1C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				04F13B56BE407D35C5E3724A /* DataStore.swift in Sources */,
+				1B1D2ED71451D3245FDE2D65 /* LargeView.swift in Sources */,
+				BEA1B4F444D2802747D230BC /* MediumView.swift in Sources */,
+				D44268B8038CC73E3F0FC3C4 /* OmbroPanelWidget.swift in Sources */,
+				6D056B7C6A870440FE4D53A9 /* Provider.swift in Sources */,
+				7D637E20D8D86A16CCD0CCD9 /* RunCycleIntent.swift in Sources */,
+				D9B7A3044AD06A4AAECD92CF /* Shared.swift in Sources */,
+				0C69D3853629A5017E3455AC /* SmallView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		BAA3684C1DE505A7D5DB5566 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6F9B80D50C99E23B710E5C23 /* OmbroPanelWidgetExtension */;
+			targetProxy = C045BA73F71F9B15FB4C8E65 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		858D65E60C9A9FE03A00EC2E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		91EF54C8D1AE0A27EBAB0129 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = OmbroPanel/OmbroPanel.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = OmbroPanel/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.miguelcamilo.ombropanel;
+				PRODUCT_NAME = OmbroPanel;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		98579D7F0928FE9EDE30AA8C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = OmbroPanelWidget/OmbroPanelWidget.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = OmbroPanelWidget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.miguelcamilo.ombropanel.widget;
+				PRODUCT_NAME = OmbroPanelWidget;
+				SDKROOT = macosx;
+				SKIP_INSTALL = NO;
+			};
+			name = Release;
+		};
+		A52BFDCE1C81D5E9C7BDE459 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = OmbroPanelWidget/OmbroPanelWidget.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = OmbroPanelWidget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.miguelcamilo.ombropanel.widget;
+				PRODUCT_NAME = OmbroPanelWidget;
+				SDKROOT = macosx;
+				SKIP_INSTALL = NO;
+			};
+			name = Debug;
+		};
+		AFF71966DCA205F16A29F236 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		B1F824EAE7C81F931B10A03E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = OmbroPanel/OmbroPanel.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = OmbroPanel/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.miguelcamilo.ombropanel;
+				PRODUCT_NAME = OmbroPanel;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		078911B951AB52750F708A6E /* Build configuration list for PBXProject "OmbroPanel" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AFF71966DCA205F16A29F236 /* Debug */,
+				858D65E60C9A9FE03A00EC2E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		81F57166E40509627DDF8F79 /* Build configuration list for PBXNativeTarget "OmbroPanelWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A52BFDCE1C81D5E9C7BDE459 /* Debug */,
+				98579D7F0928FE9EDE30AA8C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		DB4066A60F1089D728A47D9D /* Build configuration list for PBXNativeTarget "OmbroPanel" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B1F824EAE7C81F931B10A03E /* Debug */,
+				91EF54C8D1AE0A27EBAB0129 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = FA3FCA5BE51DB5FE51E32BC2 /* Project object */;
+}

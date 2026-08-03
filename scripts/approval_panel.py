@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import secrets
 import subprocess
 import sys
 from datetime import date, datetime, time as dtime, timedelta, timezone
@@ -27,7 +28,7 @@ from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from flask import Flask, flash, redirect, render_template, request, session, url_for
+from flask import Flask, Response, flash, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -53,11 +54,20 @@ DEFAULT_ADMIN_USERNAME = "admin"
 DEFAULT_ADMIN_PASSWORD = "123456"
 
 # Rotas acessíveis sem sessão — tudo mais passa pelo guard em before_request.
-_PUBLIC_ENDPOINTS = {"login"}
+# As /api/* não usam cookie de sessão (widget do iPad via Scriptable não tem
+# como fazer login interativo) — se autenticam sozinhas via
+# _require_widget_token, então também entram aqui.
+_PUBLIC_ENDPOINTS = {"login", "api_widget_snapshot", "api_run_cycle_now"}
 
 if not config.APPROVAL_PANEL_SECRET_KEY:
     raise RuntimeError(
         "APPROVAL_PANEL_SECRET_KEY não definido no .env — gere com "
+        "`python -c \"import secrets; print(secrets.token_hex(32))\"`."
+    )
+
+if not config.WIDGET_API_TOKEN:
+    raise RuntimeError(
+        "WIDGET_API_TOKEN não definido no .env — gere com "
         "`python -c \"import secrets; print(secrets.token_hex(32))\"`."
     )
 
@@ -232,6 +242,41 @@ def run_cycle_now():
     subprocess.Popen([sys.executable, str(RUN_CYCLE_SCRIPT)])
     flash("Ciclo disparado — pode levar alguns minutos. Atualize a página pra ver o resultado.")
     return redirect(url_for("home"))
+
+
+def _require_widget_token() -> Optional[tuple[Any, int]]:
+    """Guard das rotas /api/* — sem cookie de sessão (o widget do iPad via
+    Scriptable não tem como fazer login interativo), então autentica pelo
+    header Authorization: Bearer <WIDGET_API_TOKEN>. compare_digest evita
+    timing attack na comparação do token."""
+    expected = f"Bearer {config.WIDGET_API_TOKEN}"
+    provided = request.headers.get("Authorization", "")
+    if not secrets.compare_digest(provided, expected):
+        return jsonify({"error": "unauthorized"}), 401
+    return None
+
+
+@app.route("/api/widget-snapshot")
+def api_widget_snapshot():
+    """Serve pro widget do iPad (Scriptable) o mesmo JSON que o widget
+    nativo do Mac lê localmente — ver scripts/write_widget_snapshot.py,
+    que já mantém esse arquivo atualizado a cada poucos minutos."""
+    if (auth_error := _require_widget_token()) is not None:
+        return auth_error
+    if not config.WIDGET_SNAPSHOT_PATH.exists():
+        return jsonify({"error": "snapshot not ready"}), 503
+    return Response(config.WIDGET_SNAPSHOT_PATH.read_text(), mimetype="application/json")
+
+
+@app.route("/api/cycle/run", methods=["POST"])
+def api_run_cycle_now():
+    """Equivalente do botão "Rodar ciclo agora" pro widget do iPad —
+    mesma ação de /cycle/run, só que autenticada por token em vez de
+    sessão de login."""
+    if (auth_error := _require_widget_token()) is not None:
+        return auth_error
+    subprocess.Popen([sys.executable, str(RUN_CYCLE_SCRIPT)])
+    return jsonify({"status": "started"})
 
 
 @app.route("/offers")

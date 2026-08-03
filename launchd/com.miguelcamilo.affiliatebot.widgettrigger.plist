@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.miguelcamilo.affiliatebot.widgettrigger</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/miguelcamilo/affiliate-bot/venv/bin/python3</string>
+        <string>/Users/miguelcamilo/affiliate-bot/scripts/run_cycle_now.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/miguelcamilo/affiliate-bot</string>
+
+    <!-- O widget (sandboxed, não pode chamar Process() direto) escreve
+         nesse arquivo pra pedir um ciclo manual — ver RunCycleIntent.swift.
+         WatchPaths dispara o job a cada escrita; o arquivo precisa já
+         existir antes do load (criado uma vez via touch). -->
+    <key>WatchPaths</key>
+    <array>
+        <string>/Users/miguelcamilo/affiliate-bot/state/widget_run_trigger</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/miguelcamilo/affiliate-bot/logs/widgettrigger_stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/miguelcamilo/affiliate-bot/logs/widgettrigger_stderr.log</string>
+</dict>
+</plist>

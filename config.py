@@ -18,12 +18,24 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent
 DATABASE_DIR = BASE_DIR / "database"
 LOGS_DIR = BASE_DIR / "logs"
+STATE_DIR = BASE_DIR / "state"
 
 DATABASE_DIR.mkdir(exist_ok=True)
 LOGS_DIR.mkdir(exist_ok=True)
+STATE_DIR.mkdir(exist_ok=True)
 
 DB_PATH = DATABASE_DIR / "affiliate_bot.db"
 LOG_FILE = LOGS_DIR / "affiliate_bot.log"
+
+# Ponte com o widget nativo (macos-widget/) — a extensão roda em App
+# Sandbox e não pode ler o SQLite/log/.env nem chamar launchctl/pgrep
+# diretamente, então scripts/write_widget_snapshot.py materializa um JSON
+# aqui pra ela ler (única leitura liberada via temporary-exception
+# entitlement). O trigger é o inverso: o widget escreve nesse arquivo pra
+# pedir um ciclo manual, e um launchd agent com WatchPaths reage a isso
+# rodando run_cycle_now.py fora do sandbox.
+WIDGET_SNAPSHOT_PATH = STATE_DIR / "widget_snapshot.json"
+WIDGET_RUN_TRIGGER_PATH = STATE_DIR / "widget_run_trigger"
 
 load_dotenv(BASE_DIR / ".env")
 
@@ -116,6 +128,11 @@ APPROVAL_PANEL_PORT = _env_int("APPROVAL_PANEL_PORT", 8765)
 # Assina a sessão de login do painel — precisa ser estável entre reinícios
 # do processo (senão todo mundo é deslogado a cada restart do launchd).
 APPROVAL_PANEL_SECRET_KEY = os.getenv("APPROVAL_PANEL_SECRET_KEY", "")
+# Autentica as rotas /api/* (widget do iPad via Scriptable — não usa
+# cookie de sessão, então precisa de um token próprio). Ver
+# scripts/approval_panel.py (_require_widget_token) — comparação em
+# tempo constante contra o header Authorization: Bearer <token>.
+WIDGET_API_TOKEN = os.getenv("WIDGET_API_TOKEN", "")
 
 # --- Regras de negócio ---------------------------------------------------
 MIN_DISCOUNT_PERCENT = _env_int("MIN_DISCOUNT_PERCENT", 30)
@@ -201,7 +218,9 @@ KEYWORD_TO_GROUP: dict[str, str] = {
 # painel. Escolhido por categoria, não por produto individual: não temos
 # IA escrevendo texto por oferta, então evitamos afirmar qualquer coisa
 # específica sobre o item (risco de inventar algo errado sobre um produto
-# que só conhecemos pela API) — a piada é sobre o *tipo* de produto.
+# que só conhecemos pela API) — a piada é sobre o *tipo* de produto. O
+# widget nativo (macos-widget/) não reimplementa essa escolha: recebe o
+# headline já pronto via write_widget_snapshot.py, então só existe aqui.
 OFFER_HEADLINES: dict[str, list[str]] = {
     "setup_gamer": [
         "STOP BLAMING YOUR MOUSE FOR THAT LOSS",

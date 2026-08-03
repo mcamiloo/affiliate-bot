@@ -5,6 +5,7 @@ __pycache__/
 *.db
 *.sqlite3
 logs/*.log
+state/
 .DS_Store
 .pytest_cache/
 dist/
@@ -12,3 +13,7 @@ dist/
 
 # Local Netlify folder
 .netlify
+
+# Xcode (macos-widget/) — estado por usuário, não faz sentido versionar
+xcuserdata/
+*.xcuserstate
