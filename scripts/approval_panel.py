@@ -15,7 +15,6 @@ nunca agenda ou envia sozinho.
 
 from __future__ import annotations
 
-import ipaddress
 import json
 import logging
 import re
@@ -48,11 +47,6 @@ UK_TZ = ZoneInfo("Europe/London")
 NEWSLETTER_LABEL = "com.miguelcamilo.affiliatebot.newsletter"
 RUN_CYCLE_SCRIPT = Path(__file__).resolve().parent / "run_cycle_now.py"
 _WHATSAPP_LOG_LINE_RE = re.compile(r"^(?P<ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),\d+ .+ no WhatsApp.*$")
-
-# Faixa de IP publicada pelo Brevo pra origem dos webhooks — segunda
-# camada de autenticação além do header secreto, já que o Brevo não
-# assina o payload (sem HMAC nativo). Ver _require_brevo_webhook_auth.
-_BREVO_WEBHOOK_IP_RANGE = ipaddress.ip_network("1.179.112.0/20")
 
 # A documentação do Brevo é inconsistente sobre o valor exato do campo
 # "event" no payload do webhook — exemplos oficiais mostram tanto
@@ -348,22 +342,19 @@ def newsletter_unsubscribe():
 
 def _require_brevo_webhook_auth() -> Optional[tuple[Any, int]]:
     """Guard de /api/brevo-webhook — o Brevo não assina o payload (sem
-    HMAC nativo), então combina duas camadas independentes: um segredo
-    num header custom (configurado via scripts/setup_brevo_webhook.py,
-    nunca na URL — evita vazar em log de proxy/Tailscale) e o allowlist
-    do IP de origem que o próprio Brevo publica."""
+    HMAC nativo), então autentica só pelo segredo num header custom
+    (configurado via scripts/setup_brevo_webhook.py, nunca na URL — evita
+    vazar em log de proxy/Tailscale). Chegou a ter um allowlist de IP
+    publicado pelo Brevo como segunda camada, mas foi removido: a faixa
+    documentada (1.179.112.0/20) não bateu com o IP real de origem
+    (172.246.240.0/20, região Europa) na primeira vez que um evento de
+    verdade chegou — o Brevo já mudou de infraestrutura de rede antes
+    (ver status page deles), então travar nisso é frágil. Um segredo de
+    256 bits comparado em tempo constante já é autenticação forte por si
+    só — mesmo padrão de confiança do WIDGET_API_TOKEN."""
     provided_secret = request.headers.get("X-Brevo-Webhook-Secret", "")
     if not secrets.compare_digest(provided_secret, config.BREVO_WEBHOOK_SECRET):
         return jsonify({"error": "unauthorized"}), 401
-
-    try:
-        remote_ip = ipaddress.ip_address(request.remote_addr)
-    except ValueError:
-        return jsonify({"error": "unauthorized"}), 401
-    if remote_ip not in _BREVO_WEBHOOK_IP_RANGE:
-        logger.warning("Webhook do Brevo com header certo mas IP fora do allowlist: %s", request.remote_addr)
-        return jsonify({"error": "unauthorized"}), 401
-
     return None
 
 

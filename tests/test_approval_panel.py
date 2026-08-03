@@ -487,24 +487,16 @@ def test_brevo_webhook_rejects_wrong_secret(anon_client, monkeypatch):
     assert response.status_code == 401
 
 
-def test_brevo_webhook_rejects_right_secret_wrong_ip(anon_client, monkeypatch):
+def test_brevo_webhook_accepts_right_secret(anon_client, monkeypatch):
+    # Sem checagem de IP — ver _require_brevo_webhook_auth: um allowlist
+    # baseado na faixa documentada pelo Brevo rejeitou um evento real (o
+    # IP de origem de verdade estava numa faixa/região diferente), então
+    # foi removido. Só o segredo no header autentica agora.
     monkeypatch.setattr(approval_panel.config, "BREVO_WEBHOOK_SECRET", "right-secret")
     response = anon_client.post(
         "/api/brevo-webhook",
         json={"email": "a@b.com", "event": "opened", "camp_id": 1, "date_event": "2026-08-03 10:00:00"},
         headers={"X-Brevo-Webhook-Secret": "right-secret"},
-        environ_overrides={"REMOTE_ADDR": "8.8.8.8"},
-    )
-    assert response.status_code == 401
-
-
-def test_brevo_webhook_accepts_right_secret_and_ip_in_range(anon_client, monkeypatch):
-    monkeypatch.setattr(approval_panel.config, "BREVO_WEBHOOK_SECRET", "right-secret")
-    response = anon_client.post(
-        "/api/brevo-webhook",
-        json={"email": "a@b.com", "event": "opened", "camp_id": 1, "date_event": "2026-08-03 10:00:00"},
-        headers={"X-Brevo-Webhook-Secret": "right-secret"},
-        environ_overrides={"REMOTE_ADDR": "1.179.112.5"},
     )
     assert response.status_code == 200
     with DBManager() as db:
@@ -517,7 +509,6 @@ def test_brevo_webhook_rejects_incomplete_payload(anon_client, monkeypatch):
         "/api/brevo-webhook",
         json={"email": "a@b.com"},
         headers={"X-Brevo-Webhook-Secret": "right-secret"},
-        environ_overrides={"REMOTE_ADDR": "1.179.112.5"},
     )
     assert response.status_code == 400
 
@@ -541,7 +532,6 @@ def test_brevo_webhook_normalizes_event_name(anon_client, monkeypatch, raw_event
         "/api/brevo-webhook",
         json={"email": "a@b.com", "event": raw_event, "camp_id": 1, "date_event": "2026-08-03 10:00:00"},
         headers={"X-Brevo-Webhook-Secret": "right-secret"},
-        environ_overrides={"REMOTE_ADDR": "1.179.112.5"},
     )
     assert response.status_code == 200
     with DBManager() as db:
