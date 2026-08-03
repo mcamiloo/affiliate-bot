@@ -122,6 +122,7 @@ def create_campaign_draft(subject: str, html_content: str) -> int:
                 "name": f"Newsletter {subject}",
                 "subject": subject,
                 "sender": {"name": config.BREVO_SENDER_NAME, "email": config.BREVO_SENDER_EMAIL},
+                "replyTo": config.BREVO_REPLY_TO_EMAIL,
                 "type": "classic",
                 "htmlContent": html_content,
                 "recipients": {"listIds": [config.BREVO_LIST_ID]},

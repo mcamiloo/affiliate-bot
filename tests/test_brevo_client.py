@@ -21,6 +21,7 @@ def brevo_config(monkeypatch):
     monkeypatch.setattr(config, "BREVO_DOI_REDIRECT_URL", "https://example.com/thanks")
     monkeypatch.setattr(config, "BREVO_SENDER_NAME", "Test Sender")
     monkeypatch.setattr(config, "BREVO_SENDER_EMAIL", "sender@example.com")
+    monkeypatch.setattr(config, "BREVO_REPLY_TO_EMAIL", "sender@example.com")
     monkeypatch.setattr(config, "NEWSLETTER_UNSUB_SECRET", "test-unsub-secret")
 
 
@@ -80,13 +81,40 @@ def test_list_list_contacts_paginates(monkeypatch):
 
 
 def test_create_campaign_draft_returns_id(monkeypatch):
+    captured = {}
+
     def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = request.content
         return httpx.Response(201, json={"id": 777})
 
     monkeypatch.setattr(brevo_client, "_client", lambda: _mock_client(handler))
 
     campaign_id = brevo_client.create_campaign_draft("Subject", "<html></html>")
     assert campaign_id == 777
+
+    import json
+
+    body = json.loads(captured["body"])
+    # sem isso, quem responde a campanha cai no email padrão da conta
+    # Brevo em vez do remetente configurado — bug real, já visto em produção.
+    assert body["replyTo"] == "sender@example.com"
+    assert body["sender"]["email"] == "sender@example.com"
+
+
+def test_create_campaign_draft_reply_to_can_differ_from_sender(monkeypatch):
+    monkeypatch.setattr(config, "BREVO_REPLY_TO_EMAIL", "support@example.com")
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = request.content
+        return httpx.Response(201, json={"id": 1})
+
+    monkeypatch.setattr(brevo_client, "_client", lambda: _mock_client(handler))
+    brevo_client.create_campaign_draft("Subject", "<html></html>")
+
+    import json
+
+    assert json.loads(captured["body"])["replyTo"] == "support@example.com"
 
 
 def test_delete_campaign_ignores_404(monkeypatch):

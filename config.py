@@ -98,6 +98,10 @@ BREVO_DOI_TEMPLATE_ID = _env_int("BREVO_DOI_TEMPLATE_ID", 0) if os.getenv("BREVO
 BREVO_DOI_REDIRECT_URL = os.getenv("BREVO_DOI_REDIRECT_URL", "")
 BREVO_SENDER_NAME = os.getenv("BREVO_SENDER_NAME", "")
 BREVO_SENDER_EMAIL = os.getenv("BREVO_SENDER_EMAIL", "")
+# Pra onde vai uma resposta de quem recebe a campanha — sem isso o Brevo
+# cai no email padrão da conta (o pessoal de quem criou a conta), não no
+# remetente configurado. Ver modules/brevo_client.create_campaign_draft.
+BREVO_REPLY_TO_EMAIL = os.getenv("BREVO_REPLY_TO_EMAIL", "") or BREVO_SENDER_EMAIL
 # Segredo enviado pelo Brevo num header custom (X-Brevo-Webhook-Secret) em
 # toda chamada de webhook — ver scripts/setup_brevo_webhook.py, que registra
 # o webhook já com esse header configurado. Combinado com o allowlist de IP
