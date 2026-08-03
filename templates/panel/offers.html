@@ -1,4 +1,20 @@
 {% extends "base.html" %}
+{% block extra_style %}
+<style>
+  .offer-card { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+  .offer-card.is-hidden { opacity: 0.5; }
+  .offer-thumb { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; background: var(--border); display: block; }
+  .offer-thumb-placeholder { width: 100%; aspect-ratio: 1 / 1; background: var(--border); }
+  .offer-body { padding: 0.8rem 0.9rem; display: flex; flex-direction: column; gap: 0.4rem; flex: 1; }
+  .offer-title { font-size: 0.85rem; font-weight: 600; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-decoration: none; color: var(--text); }
+  .offer-title:hover { text-decoration: underline; }
+  .offer-price-row { display: flex; align-items: baseline; gap: 0.4rem; }
+  .offer-price { font-size: 1.05rem; font-weight: 800; color: var(--accent); }
+  .offer-original-price { font-size: 0.78rem; color: var(--text-muted); text-decoration: line-through; }
+  .offer-discount { font-size: 0.7rem; font-weight: 700; color: #06210f; background: var(--ok); padding: 0.1rem 0.4rem; border-radius: 999px; }
+  .offer-meta { display: flex; justify-content: space-between; align-items: center; margin-top: auto; padding-top: 0.4rem; }
+</style>
+{% endblock %}
 {% block content %}
 <h1>Ofertas publicadas</h1>
 
@@ -6,19 +22,27 @@
 <p class="muted">Nenhuma oferta publicada ainda.</p>
 {% endif %}
 
-<table>
-  <thead>
-    <tr><th>Publicada em</th><th>Título</th><th>Preço</th><th>Desconto</th><th>Categoria</th><th></th></tr>
-  </thead>
-  <tbody>
-    {% for offer in offers %}
-    <tr>
-      <td>{{ offer.posted_at }}</td>
-      <td><a href="{{ offer.affiliate_url }}" target="_blank" rel="noopener">{{ offer.title }}</a></td>
-      <td>£{{ "%.2f"|format(offer.price) }}</td>
-      <td>{{ offer.discount_percent | int if offer.discount_percent else '—' }}%</td>
-      <td>{{ offer.category or '—' }}</td>
-      <td>
+<div class="card-grid">
+  {% for offer in offers %}
+  <div class="card offer-card {{ 'is-hidden' if offer.hidden }}">
+    {% if offer.image_url %}
+    <img class="offer-thumb" src="{{ offer.image_url }}" alt="" loading="lazy">
+    {% else %}
+    <div class="offer-thumb-placeholder"></div>
+    {% endif %}
+    <div class="offer-body">
+      <a class="offer-title" href="{{ offer.affiliate_url }}" target="_blank" rel="noopener">{{ offer.title }}</a>
+      <div class="offer-price-row">
+        <span class="offer-price">£{{ "%.2f"|format(offer.price) }}</span>
+        {% if offer.original_price %}
+        <span class="offer-original-price">£{{ "%.2f"|format(offer.original_price) }}</span>
+        {% endif %}
+        {% if offer.discount_percent %}
+        <span class="offer-discount">-{{ offer.discount_percent | int }}%</span>
+        {% endif %}
+      </div>
+      <span class="muted" style="font-size:0.75rem;">{{ offer.category or "sem categoria" }} · {{ offer.posted_at }}</span>
+      <div class="offer-meta">
         {% if offer.hidden %}
         <span class="status-pill">Oculta</span>
         {% else %}
@@ -27,9 +51,9 @@
           <button type="submit" class="btn-delete">Ocultar</button>
         </form>
         {% endif %}
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
 {% endblock %}

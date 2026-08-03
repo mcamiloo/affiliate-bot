@@ -34,7 +34,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 import config
 from database.db_manager import DBManager
-from modules import brevo_client
+from modules import brevo_client, newsletter
 from scripts.health_check import job_is_loaded, last_successful_cycle
 from utils.headlines import pick_offer_headline
 from utils.unsubscribe import compute_unsub_token, verify_unsub_token
@@ -402,9 +402,6 @@ def subscribers():
     search = (request.args.get("q") or "").strip()
     with DBManager() as db:
         rows = db.list_subscribers(search=search or None)
-        last_events = db.last_event_per_email([row["email"] for row in rows])
-    for row in rows:
-        row["last_event"] = last_events.get(row["email"])
     return render_template("subscribers.html", subscribers=rows, search=search)
 
 
@@ -412,18 +409,69 @@ def subscribers():
 def newsletter_stats():
     with DBManager() as db:
         campaigns = db.list_campaign_stats()
-    return render_template("stats.html", campaigns=campaigns)
+
+    def _rate(count: int, base: int) -> Optional[float]:
+        return round(100 * count / base, 1) if base else None
+
+    for c in campaigns:
+        events = c["events"]
+        delivered = events.get("delivered", 0)
+        bounced = events.get("hardBounce", 0) + events.get("softBounce", 0)
+        c["delivered"] = delivered
+        c["bounced"] = bounced
+        c["unsubscribed"] = events.get("unsubscribed", 0)
+        c["open_rate"] = _rate(events.get("opened", 0), delivered)
+        c["click_rate"] = _rate(events.get("click", 0), delivered)
+        c["bounce_rate"] = _rate(bounced, delivered)
+
+    totals = {
+        "campaigns": len(campaigns),
+        "delivered": sum(c["delivered"] for c in campaigns),
+        "avg_open_rate": round(sum(c["open_rate"] or 0 for c in campaigns) / len(campaigns), 1) if campaigns else None,
+        "avg_click_rate": round(sum(c["click_rate"] or 0 for c in campaigns) / len(campaigns), 1) if campaigns else None,
+    }
+    return render_template("stats.html", campaigns=campaigns, totals=totals)
+
+
+@app.route("/newsletter/tracking")
+def newsletter_tracking():
+    """Nível 1 do drill-down: lista de campanhas já enviadas."""
+    with DBManager() as db:
+        campaigns = db.list_campaign_stats()
+    return render_template("tracking_campaigns.html", campaigns=campaigns)
+
+
+@app.route("/newsletter/tracking/<int:campaign_id>")
+def newsletter_tracking_recipients(campaign_id: int):
+    """Nível 2: destinatários dessa campanha, com status mais recente."""
+    with DBManager() as db:
+        recipients = db.list_campaign_recipients(campaign_id)
+        campaign = db.get_campaign_summary(campaign_id)
+    return render_template(
+        "tracking_recipients.html", campaign_id=campaign_id, campaign=campaign, recipients=recipients
+    )
+
+
+@app.route("/newsletter/tracking/<int:campaign_id>/<email>")
+def newsletter_tracking_events(campaign_id: int, email: str):
+    """Nível 3: log completo de eventos desse destinatário nessa campanha."""
+    with DBManager() as db:
+        events = db.list_recipient_events(campaign_id, email)
+    return render_template(
+        "tracking_events.html", campaign_id=campaign_id, email=email, events=events
+    )
 
 
 @app.route("/queue")
 def queue():
     with DBManager() as db:
         drafts = db.list_pending_drafts()
-    for draft in drafts:
+        sent_drafts = db.list_sent_drafts()
+    for draft in drafts + sent_drafts:
         # offer_ids é None nos rascunhos avulsos (compose manual) — não
         # vêm de uma seleção automática de ofertas.
         draft["offer_ids"] = json.loads(draft["offer_ids"]) if draft["offer_ids"] else []
-    return render_template("queue.html", drafts=drafts)
+    return render_template("queue.html", drafts=drafts, sent_drafts=sent_drafts)
 
 
 @app.route("/queue/<int:draft_id>/preview")
@@ -502,13 +550,57 @@ def send_test_draft(draft_id: int):
     return redirect(url_for("queue"))
 
 
+@app.route("/queue/<int:draft_id>")
+def draft_details(draft_id: int):
+    with DBManager() as db:
+        draft = db.get_email_draft(draft_id)
+    if draft is None:
+        return "Rascunho não encontrado.", 404
+    draft["offer_ids"] = json.loads(draft["offer_ids"]) if draft["offer_ids"] else []
+    return render_template("draft_details.html", draft=draft)
+
+
+@app.route("/queue/<int:draft_id>/replicate", methods=["POST"])
+def replicate_draft(draft_id: int):
+    """Cria um rascunho novo (pending_approval) com o mesmo assunto/HTML —
+    útil pra reenviar uma campanha aprovada/enviada em outra data sem
+    reescrever do zero. Sempre cria uma campanha nova no Brevo, já que a
+    original já foi decidida (agendada/enviada/cancelada)."""
+    with DBManager() as db:
+        draft = db.get_email_draft(draft_id)
+    if draft is None:
+        return "Rascunho não encontrado.", 404
+
+    subject = f"Cópia de {draft['subject']}" if draft["subject"] else "Cópia de rascunho"
+    try:
+        campaign_id = brevo_client.create_campaign_draft(subject, draft["html_content"])
+    except Exception:
+        logger.exception("Falha ao replicar draft %d no Brevo", draft_id)
+        flash("Falha ao falar com o Brevo — veja os logs.")
+        return redirect(url_for("queue"))
+
+    with DBManager() as db:
+        db.create_adhoc_email_draft(subject, draft["html_content"], campaign_id)
+
+    flash("Cópia criada — revise e aprove na fila.")
+    return redirect(url_for("queue"))
+
+
 @app.route("/newsletter/compose", methods=["GET", "POST"])
 def compose_email():
     """Compose manual — upload/cola um HTML pronto, cria como rascunho no
     Brevo e entra na mesma fila de aprovação dos automáticos (com o botão
     de teste disponível antes de aprovar de verdade)."""
     if request.method == "GET":
-        return render_template("compose.html", error=None, subject="", html_content="")
+        subject, html_content = "", ""
+        from_draft_id = request.args.get("from_draft_id", type=int)
+        if from_draft_id is not None:
+            with DBManager() as db:
+                source = db.get_email_draft(from_draft_id)
+            if source is not None:
+                subject = f"{source['subject']} (editado)" if source["subject"] else ""
+                html_content = source["html_content"]
+        return render_template("compose.html", error=None, subject=subject, html_content=html_content)
 
     subject = (request.form.get("subject") or "").strip()
     html_content = request.form.get("html_content") or ""
@@ -547,7 +639,54 @@ def compose_email():
 def schedule():
     with DBManager() as db:
         rows = db.list_scheduled_sends()
-    return render_template("schedule.html", rows=rows, today=datetime.now(UK_TZ).date().isoformat())
+        for row in rows:
+            draft = db.get_draft_by_scheduled_send(row["id"])
+            if draft is not None:
+                draft["offer_count"] = len(json.loads(draft["offer_ids"])) if draft["offer_ids"] else 0
+            row["draft"] = draft
+        offers_available = db.list_offers_by_score(since_hours=config.NEWSLETTER_LOOKBACK_HOURS) if any(
+            row["draft"] is None for row in rows
+        ) else []
+    return render_template(
+        "schedule.html",
+        rows=rows,
+        today=datetime.now(UK_TZ).date().isoformat(),
+        offers_available=len(offers_available),
+    )
+
+
+@app.route("/schedule/<int:scheduled_send_id>/generate-draft-now", methods=["POST"])
+def generate_draft_now(scheduled_send_id: int):
+    """Força a geração do rascunho antes do draft_generation_time_utc —
+    útil pra revisar/aprovar com mais folga em vez de esperar a hora
+    automática (mesma lógica de newsletter_scheduler.process_due_drafts,
+    só que sob demanda pra um horário específico)."""
+    with DBManager() as db:
+        row = db.get_scheduled_send(scheduled_send_id)
+        if row is None:
+            return "Horário não encontrado.", 404
+        if db.has_draft_for_scheduled_send(scheduled_send_id):
+            flash("Esse horário já tem um rascunho.")
+            return redirect(url_for("schedule"))
+
+        send_date = date.fromisoformat(row["send_date"])
+        content = newsletter.build_newsletter(db, send_date)
+        if content is None:
+            flash("Sem ofertas recentes o suficiente pra montar um rascunho agora.")
+            return redirect(url_for("schedule"))
+
+        try:
+            campaign_id = brevo_client.create_campaign_draft(content.subject, content.html)
+        except Exception:
+            logger.exception("Falha ao criar campanha rascunho no Brevo (geração manual)")
+            flash("Falha ao falar com o Brevo — veja os logs.")
+            return redirect(url_for("schedule"))
+
+        db.create_email_draft(scheduled_send_id, content.html, content.offer_ids, campaign_id)
+        db.update_scheduled_send(scheduled_send_id, status="draft_created")
+
+    flash("Rascunho gerado — já dá pra revisar na fila de aprovação.")
+    return redirect(url_for("schedule"))
 
 
 @app.route("/schedule/create", methods=["POST"])

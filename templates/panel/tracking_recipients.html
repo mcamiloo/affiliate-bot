@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="muted"><a href="{{ url_for('newsletter_tracking') }}">← Todas as campanhas</a></p>
+<h1>{{ campaign.subject if campaign else ("Campanha " ~ campaign_id) }}</h1>
+<p class="muted">campaign_id {{ campaign_id }}</p>
+
+{% if not recipients %}
+<p class="muted">Nenhum evento registrado ainda pra essa campanha.</p>
+{% endif %}
+
+<div class="card">
+  <table>
+    <thead>
+      <tr><th>Email</th><th>Status mais recente</th><th>Quando</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for r in recipients %}
+      <tr>
+        <td>{{ r.email }}</td>
+        <td><span class="status-pill {{ 'ok' if r.event in ('delivered', 'opened', 'click') else 'bad' }}">{{ r.event }}</span></td>
+        <td class="muted">{{ r.occurred_at }}</td>
+        <td><a class="btn btn-secondary" href="{{ url_for('newsletter_tracking_events', campaign_id=campaign_id, email=r.email) }}">Ver histórico</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -40,4 +40,28 @@
   </div>
 </div>
 {% endfor %}
+
+<h1>Aprovados / enviados</h1>
+{% if not sent_drafts %}
+<p class="muted">Nenhum rascunho aprovado ou enviado ainda.</p>
+{% endif %}
+
+<div class="card-grid">
+  {% for draft in sent_drafts %}
+  <div class="card">
+    <p style="margin-top:0;">
+      <strong>{{ draft.subject or ("Envio de " ~ draft.send_date) }}</strong><br>
+      <span class="status-pill ok">{{ draft.status }}</span>
+      <span class="muted">{{ draft.decided_at or "" }}</span>
+    </p>
+    <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+      <a class="btn btn-secondary" href="{{ url_for('draft_details', draft_id=draft.id) }}">Detalhes</a>
+      <form class="inline" method="post" action="{{ url_for('replicate_draft', draft_id=draft.id) }}">
+        <button type="submit" class="btn-secondary">Replicar</button>
+      </form>
+      <a class="btn btn-secondary" href="{{ url_for('compose_email', from_draft_id=draft.id) }}">Editar p/ nova publicação</a>
+    </div>
+  </div>
+  {% endfor %}
+</div>
 {% endblock %}

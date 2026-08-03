@@ -123,6 +123,35 @@ def test_sync_subscribers_upserts_from_brevo_contacts(db):
     assert db.list_active_subscribers()[0]["email"] == "active@x.com"
 
 
+def test_sync_subscribers_falls_back_to_created_at_when_no_consent_timestamp(db):
+    # Contatos criados antes do atributo CONSENT_TIMESTAMP existir (ou por
+    # outro caminho que não seja o formulário) não têm esse atributo —
+    # createdAt (sempre presente, gerado pelo próprio Brevo) é o fallback.
+    contacts = [
+        {"email": "old@x.com", "id": 1, "emailBlacklisted": False, "createdAt": "2026-01-01T00:00:00+00:00", "attributes": {}},
+    ]
+    with patch.object(scheduler.brevo_client, "list_list_contacts", return_value=contacts):
+        scheduler.sync_subscribers(db)
+
+    subscriber = db.list_active_subscribers()[0]
+    assert subscriber["consented_at"] == "2026-01-01T00:00:00+00:00"
+
+
+def test_sync_subscribers_prefers_consent_timestamp_over_created_at(db):
+    contacts = [
+        {
+            "email": "new@x.com", "id": 1, "emailBlacklisted": False,
+            "createdAt": "2026-01-01T00:00:00+00:00",
+            "attributes": {"CONSENT_TIMESTAMP": "2026-02-02T00:00:00+00:00"},
+        },
+    ]
+    with patch.object(scheduler.brevo_client, "list_list_contacts", return_value=contacts):
+        scheduler.sync_subscribers(db)
+
+    subscriber = db.list_active_subscribers()[0]
+    assert subscriber["consented_at"] == "2026-02-02T00:00:00+00:00"
+
+
 def test_sync_subscribers_handles_brevo_failure_gracefully(db):
     with patch.object(scheduler.brevo_client, "list_list_contacts", side_effect=RuntimeError("boom")):
         scheduler.sync_subscribers(db)  # não deve levantar

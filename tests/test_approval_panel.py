@@ -161,6 +161,48 @@ def test_delete_schedule_cancels_pending_draft_campaign(client):
         assert db.get_scheduled_send(scheduled_send_id) is None
 
 
+def test_generate_draft_now_creates_draft_immediately(client):
+    client.post("/schedule/create", data={"send_date": "2026-08-05", "local_time": "14:30"})
+    with DBManager() as db:
+        row_id = db.list_scheduled_sends()[0]["id"]
+    _save_offer("GEN1")
+
+    with patch.object(approval_panel.brevo_client, "create_campaign_draft", return_value=123) as create_mock:
+        response = client.post(f"/schedule/{row_id}/generate-draft-now")
+
+    assert response.status_code == 302
+    create_mock.assert_called_once()
+    with DBManager() as db:
+        assert db.has_draft_for_scheduled_send(row_id)
+        assert db.get_scheduled_send(row_id)["status"] == "draft_created"
+
+
+def test_generate_draft_now_skips_if_draft_exists(client):
+    draft_id = _create_draft(timedelta(hours=2))
+    with DBManager() as db:
+        scheduled_send_id = db.get_email_draft(draft_id)["scheduled_send_id"]
+
+    with patch.object(approval_panel.brevo_client, "create_campaign_draft") as create_mock:
+        response = client.post(f"/schedule/{scheduled_send_id}/generate-draft-now")
+
+    assert response.status_code == 302
+    create_mock.assert_not_called()
+
+
+def test_generate_draft_now_flashes_when_no_offers(client):
+    client.post("/schedule/create", data={"send_date": "2026-08-05", "local_time": "14:30"})
+    with DBManager() as db:
+        row_id = db.list_scheduled_sends()[0]["id"]
+
+    with patch.object(approval_panel.brevo_client, "create_campaign_draft") as create_mock:
+        response = client.post(f"/schedule/{row_id}/generate-draft-now")
+
+    assert response.status_code == 302
+    create_mock.assert_not_called()
+    with DBManager() as db:
+        assert not db.has_draft_for_scheduled_send(row_id)
+
+
 # --- login / troca de senha -------------------------------------------------
 
 
@@ -590,6 +632,65 @@ def test_compose_post_missing_fields_shows_error(client):
         assert db.list_pending_drafts() == []
 
 
+def test_compose_get_prefills_from_existing_draft(client):
+    draft_id = _create_draft(timedelta(hours=2), campaign_id=42)
+    with DBManager() as db:
+        db.update_draft_status(draft_id, "sent")
+
+    response = client.get(f"/newsletter/compose?from_draft_id={draft_id}")
+
+    assert response.status_code == 200
+    assert b"unsubscribe" in response.data  # vem do html_content do fixture _create_draft
+
+
+def test_compose_get_ignores_missing_from_draft_id(client):
+    response = client.get("/newsletter/compose?from_draft_id=9999")
+    assert response.status_code == 200
+
+
+# --- detalhes / replicar rascunho -------------------------------------------
+
+
+def test_draft_details_shows_metadata(client):
+    draft_id = _create_draft(timedelta(hours=2), campaign_id=42)
+    response = client.get(f"/queue/{draft_id}")
+    assert response.status_code == 200
+    assert b"campaign_id 42" in response.data
+
+
+def test_draft_details_404_for_missing_draft(client):
+    response = client.get("/queue/9999")
+    assert response.status_code == 404
+
+
+def test_draft_details_requires_login(anon_client):
+    response = anon_client.get("/queue/1")
+    assert response.status_code == 302
+    assert "/login" in response.headers["Location"]
+
+
+def test_replicate_draft_creates_new_pending_draft(client):
+    draft_id = _create_draft(timedelta(hours=2), campaign_id=42)
+    with DBManager() as db:
+        db.update_draft_status(draft_id, "sent")
+
+    with patch.object(approval_panel.brevo_client, "create_campaign_draft", return_value=555) as create_mock:
+        response = client.post(f"/queue/{draft_id}/replicate")
+
+    assert response.status_code == 302
+    create_mock.assert_called_once()
+    with DBManager() as db:
+        pending = db.list_pending_drafts()
+    assert len(pending) == 1
+    assert pending[0]["brevo_campaign_id"] == 555
+    assert pending[0]["scheduled_send_id"] is None
+
+
+def test_replicate_draft_404_for_missing_draft(client):
+    response = client.post("/queue/9999/replicate")
+    assert response.status_code == 404
+
+
 def test_send_test_draft_calls_brevo(client):
     draft_id = _create_draft(timedelta(hours=2), campaign_id=42)
 
@@ -639,10 +740,76 @@ def test_newsletter_stats_shows_campaign_event_counts(client):
 
     response = client.get("/newsletter/stats")
     assert response.status_code == 200
-    assert b"campaign_id 42" in response.data
+    # 1 delivered, 1 opened -> taxa de abertura 100%
+    assert b"100.0" in response.data
+
+
+def test_newsletter_stats_computes_rates_over_delivered_not_sent(client):
+    draft_id = _create_draft(timedelta(hours=-2), campaign_id=42)
+    with DBManager() as db:
+        db.update_draft_status(draft_id, "sent")
+        for email in ["a@b.com", "b@b.com", "c@b.com", "d@b.com"]:
+            db.record_email_event(42, email, "delivered", "2026-08-03 10:00:00")
+        db.record_email_event(42, "a@b.com", "opened", "2026-08-03 10:05:00")
+        db.record_email_event(42, "b@b.com", "click", "2026-08-03 10:06:00")
+
+    response = client.get("/newsletter/stats")
+    assert response.status_code == 200
+    # 1 de 4 entregues abriu = 25%; 1 de 4 clicou = 25%
+    assert b"Abertura \xe2\x80\x94 25.0%" in response.data
+    assert b"Clique \xe2\x80\x94 25.0%" in response.data
+
+
+def test_newsletter_stats_no_rate_when_nothing_delivered(client):
+    draft_id = _create_draft(timedelta(hours=-2), campaign_id=42)
+    with DBManager() as db:
+        db.update_draft_status(draft_id, "sent")
+
+    response = client.get("/newsletter/stats")
+    assert response.status_code == 200  # não deve quebrar com divisão por zero
 
 
 def test_newsletter_stats_requires_login(anon_client):
     response = anon_client.get("/newsletter/stats")
+    assert response.status_code == 302
+    assert "/login" in response.headers["Location"]
+
+
+# --- rastreamento (drill-down campanha -> destinatário -> eventos) ----------
+
+
+def test_tracking_campaigns_lists_sent_campaigns(client):
+    draft_id = _create_draft(timedelta(hours=-2), campaign_id=42)
+    with DBManager() as db:
+        db.update_draft_status(draft_id, "sent")
+        db.record_email_event(42, "a@b.com", "delivered", "2026-08-03 10:00:00")
+
+    response = client.get("/newsletter/tracking")
+    assert response.status_code == 200
+
+
+def test_tracking_recipients_lists_latest_status(client):
+    with DBManager() as db:
+        db.record_email_event(42, "a@b.com", "delivered", "2026-08-03 10:00:00")
+        db.record_email_event(42, "a@b.com", "opened", "2026-08-03 10:05:00")
+
+    response = client.get("/newsletter/tracking/42")
+    assert response.status_code == 200
+    assert b"a@b.com" in response.data
+
+
+def test_tracking_events_shows_full_history(client):
+    with DBManager() as db:
+        db.record_email_event(42, "a@b.com", "delivered", "2026-08-03 10:00:00")
+        db.record_email_event(42, "a@b.com", "opened", "2026-08-03 10:05:00")
+
+    response = client.get("/newsletter/tracking/42/a@b.com")
+    assert response.status_code == 200
+    assert b">delivered<" in response.data
+    assert b">opened<" in response.data
+
+
+def test_tracking_requires_login(anon_client):
+    response = anon_client.get("/newsletter/tracking")
     assert response.status_code == 302
     assert "/login" in response.headers["Location"]

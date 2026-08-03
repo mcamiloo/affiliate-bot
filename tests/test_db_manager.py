@@ -458,16 +458,51 @@ def test_list_campaign_stats_only_includes_sent_campaigns(db):
     assert stats[0]["events"] == {"delivered": 1}
 
 
-def test_last_event_per_email_returns_most_recent(db):
+def test_get_campaign_summary_returns_matching_campaign(db):
+    db.create_adhoc_email_draft("Alvo", "<p>oi</p>", 7)
+    db.create_adhoc_email_draft("Outra", "<p>oi</p>", 8)
+
+    summary = db.get_campaign_summary(7)
+
+    assert summary["subject"] == "Alvo"
+
+
+def test_get_campaign_summary_returns_none_for_missing_campaign(db):
+    assert db.get_campaign_summary(999) is None
+
+
+def test_list_campaign_recipients_shows_latest_status_per_email(db):
     db.record_email_event(42, "a@b.com", "delivered", "2026-08-03 10:00:00")
     db.record_email_event(42, "a@b.com", "opened", "2026-08-03 10:05:00")
+    db.record_email_event(42, "c@d.com", "delivered", "2026-08-03 10:00:00")
 
-    result = db.last_event_per_email(["a@b.com"])
-    assert result["a@b.com"]["event"] == "opened"
+    recipients = db.list_campaign_recipients(42)
+
+    by_email = {r["email"]: r["event"] for r in recipients}
+    assert by_email == {"a@b.com": "opened", "c@d.com": "delivered"}
 
 
-def test_last_event_per_email_empty_list_returns_empty_dict(db):
-    assert db.last_event_per_email([]) == {}
+def test_list_campaign_recipients_scoped_to_campaign(db):
+    db.record_email_event(1, "a@b.com", "delivered", "2026-08-03 10:00:00")
+    db.record_email_event(2, "a@b.com", "delivered", "2026-08-03 10:00:00")
+
+    assert len(db.list_campaign_recipients(1)) == 1
+
+
+def test_list_recipient_events_returns_full_history_in_order(db):
+    db.record_email_event(42, "a@b.com", "opened", "2026-08-03 10:05:00")
+    db.record_email_event(42, "a@b.com", "delivered", "2026-08-03 10:00:00")
+
+    events = db.list_recipient_events(42, "a@b.com")
+
+    assert [e["event"] for e in events] == ["delivered", "opened"]
+
+
+def test_list_recipient_events_scoped_to_recipient(db):
+    db.record_email_event(42, "a@b.com", "delivered", "2026-08-03 10:00:00")
+    db.record_email_event(42, "c@d.com", "delivered", "2026-08-03 10:00:00")
+
+    assert len(db.list_recipient_events(42, "a@b.com")) == 1
 
 
 # --- subscribers (busca + descadastro local) --------------------------------

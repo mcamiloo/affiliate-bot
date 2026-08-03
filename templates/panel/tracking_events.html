@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="muted"><a href="{{ url_for('newsletter_tracking_recipients', campaign_id=campaign_id) }}">← Destinatários da campanha</a></p>
+<h1>{{ email }}</h1>
+<p class="muted">campaign_id {{ campaign_id }}</p>
+
+{% if not events %}
+<p class="muted">Nenhum evento registrado.</p>
+{% endif %}
+
+<div class="card">
+  <table>
+    <thead>
+      <tr><th>Evento</th><th>Quando</th><th class="muted">Recebido pelo painel em</th></tr>
+    </thead>
+    <tbody>
+      {% for e in events %}
+      <tr>
+        <td><span class="status-pill {{ 'ok' if e.event in ('delivered', 'opened', 'click') else 'bad' }}">{{ e.event }}</span></td>
+        <td>{{ e.occurred_at }}</td>
+        <td class="muted">{{ e.received_at }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

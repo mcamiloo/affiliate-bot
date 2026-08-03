@@ -556,6 +556,22 @@ class DBManager:
         )
         return [dict(row) for row in cursor.fetchall()]
 
+    def list_sent_drafts(self, limit: int = 30) -> list[dict[str, Any]]:
+        """Rascunhos já decididos (aprovados/enviados) — usado pela seção
+        "Aprovados" da fila, pra replicar/editar como base de um envio novo."""
+        cursor = self._conn.execute(
+            """
+            SELECT email_drafts.*, scheduled_sends.send_date, scheduled_sends.target_time_utc
+            FROM email_drafts
+            LEFT JOIN scheduled_sends ON scheduled_sends.id = email_drafts.scheduled_send_id
+            WHERE email_drafts.status IN ('approved', 'sent')
+            ORDER BY email_drafts.decided_at DESC
+            LIMIT ?;
+            """,
+            (limit,),
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
     def get_email_draft(self, draft_id: int) -> Optional[dict[str, Any]]:
         cursor = self._conn.execute(
             """
@@ -611,6 +627,23 @@ class DBManager:
         )
         return {row["event"]: row["n"] for row in cursor.fetchall()}
 
+    def get_campaign_summary(self, campaign_id: int) -> Optional[dict[str, Any]]:
+        """Metadados de uma campanha específica (assunto, datas) sem
+        recalcular contagem de eventos de todo mundo — usado pelo
+        cabeçalho da página de destinatários (nível 2 do drill-down)."""
+        cursor = self._conn.execute(
+            """
+            SELECT email_drafts.id, email_drafts.subject, email_drafts.brevo_campaign_id,
+                   email_drafts.decided_at, scheduled_sends.send_date
+            FROM email_drafts
+            LEFT JOIN scheduled_sends ON scheduled_sends.id = email_drafts.scheduled_send_id
+            WHERE email_drafts.brevo_campaign_id = ?;
+            """,
+            (campaign_id,),
+        )
+        row = cursor.fetchone()
+        return dict(row) if row is not None else None
+
     def list_campaign_stats(self, limit: int = 30) -> list[dict[str, Any]]:
         """Um resumo por rascunho já enviado ao Brevo (tem brevo_campaign_id),
         mais recente primeiro — alimenta a página de estatísticas do painel."""
@@ -631,22 +664,30 @@ class DBManager:
             draft["events"] = self.campaign_event_counts(draft["brevo_campaign_id"])
         return drafts
 
-    def last_event_per_email(self, emails: list[str]) -> dict[str, dict[str, Any]]:
-        """Evento mais recente por email — usado pra mostrar 'visto pela
-        última vez' na lista de assinantes sem uma query por linha."""
-        if not emails:
-            return {}
-        placeholders = ",".join("?" for _ in emails)
+    def list_campaign_recipients(self, campaign_id: int) -> list[dict[str, Any]]:
+        """Um destinatário por linha (status mais recente dele nessa
+        campanha) — página intermediária do drill-down campanha ->
+        destinatários -> log de eventos (ver /newsletter/tracking)."""
         cursor = self._conn.execute(
-            f"""
+            """
             SELECT email, event, occurred_at FROM email_events
-            WHERE id IN (
-                SELECT MAX(id) FROM email_events WHERE email IN ({placeholders}) GROUP BY email
-            );
+            WHERE campaign_id = ? AND id IN (
+                SELECT MAX(id) FROM email_events WHERE campaign_id = ? GROUP BY email
+            )
+            ORDER BY email;
             """,
-            emails,
+            (campaign_id, campaign_id),
         )
-        return {row["email"]: {"event": row["event"], "occurred_at": row["occurred_at"]} for row in cursor.fetchall()}
+        return [dict(row) for row in cursor.fetchall()]
+
+    def list_recipient_events(self, campaign_id: int, email: str) -> list[dict[str, Any]]:
+        """Histórico completo (todos os eventos, em ordem) de um
+        destinatário pra uma campanha — última parada do drill-down."""
+        cursor = self._conn.execute(
+            "SELECT * FROM email_events WHERE campaign_id = ? AND email = ? ORDER BY occurred_at, id;",
+            (campaign_id, email),
+        )
+        return [dict(row) for row in cursor.fetchall()]
 
     # --- admin_users (login do painel) --------------------------------
 

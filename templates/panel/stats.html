@@ -1,25 +1,43 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>Estatísticas de email</h1>
-<p class="muted">Dados vêm do webhook do Brevo em tempo real (delivered/opened/click/bounce) — só campanhas já enviadas aparecem aqui.</p>
+<p class="muted">Dados em tempo real via webhook do Brevo. Taxas são sobre entregues, não sobre enviados.</p>
+
+<div class="stat-row">
+  <div class="stat"><div class="value">{{ totals.campaigns }}</div><div class="label">campanhas enviadas</div></div>
+  <div class="stat"><div class="value">{{ totals.delivered }}</div><div class="label">entregas no total</div></div>
+  <div class="stat"><div class="value">{{ totals.avg_open_rate ~ "%" if totals.avg_open_rate is not none else "—" }}</div><div class="label">taxa média de abertura</div></div>
+  <div class="stat"><div class="value">{{ totals.avg_click_rate ~ "%" if totals.avg_click_rate is not none else "—" }}</div><div class="label">taxa média de clique</div></div>
+</div>
 
 {% if not campaigns %}
 <p class="muted">Nenhuma campanha enviada ainda.</p>
 {% endif %}
 
-{% for c in campaigns %}
-<div class="card">
-  <p>
-    <strong>{{ c.subject or ("Envio de " ~ c.send_date) }}</strong>
-    <span class="muted">— campaign_id {{ c.brevo_campaign_id }} · {{ c.decided_at or "—" }}</span>
-  </p>
-  <div class="stat-row">
-    <div class="stat"><div class="value">{{ c.events.delivered or 0 }}</div><div class="label">entregues</div></div>
-    <div class="stat"><div class="value">{{ c.events.opened or 0 }}</div><div class="label">abertos</div></div>
-    <div class="stat"><div class="value">{{ c.events.click or 0 }}</div><div class="label">clicaram</div></div>
-    <div class="stat"><div class="value">{{ (c.events.hardBounce or 0) + (c.events.softBounce or 0) }}</div><div class="label">bounce</div></div>
-    <div class="stat"><div class="value">{{ c.events.unsubscribed or 0 }}</div><div class="label">descadastros</div></div>
+<div class="card-grid">
+  {% for c in campaigns %}
+  <div class="card">
+    <p style="margin-top:0;">
+      <strong>{{ c.subject or ("Envio de " ~ c.send_date) }}</strong><br>
+      <span class="muted">{{ c.decided_at or "—" }} · <a href="{{ url_for('newsletter_tracking_recipients', campaign_id=c.brevo_campaign_id) }}">ver destinatários</a></span>
+    </p>
+
+    <div class="muted" style="font-size:0.8rem;">Abertura — {{ c.open_rate ~ "%" if c.open_rate is not none else "—" }}</div>
+    <div class="rate-bar-track"><div class="rate-bar-fill" style="width: {{ c.open_rate or 0 }}%; background: var(--accent);"></div></div>
+
+    <div class="muted" style="font-size:0.8rem; margin-top:0.6rem;">Clique — {{ c.click_rate ~ "%" if c.click_rate is not none else "—" }}</div>
+    <div class="rate-bar-track"><div class="rate-bar-fill" style="width: {{ c.click_rate or 0 }}%; background: var(--accent-2);"></div></div>
+
+    <div style="margin-top:0.8rem; display:flex; gap:0.4rem; flex-wrap:wrap;">
+      <span class="status-pill">{{ c.delivered }} entregues</span>
+      {% if c.bounced %}
+      <span class="status-pill bad">{{ c.bounced }} bounce{{ 's' if c.bounced != 1 }} ({{ c.bounce_rate }}%)</span>
+      {% endif %}
+      {% if c.unsubscribed %}
+      <span class="status-pill bad">{{ c.unsubscribed }} descadastro{{ 's' if c.unsubscribed != 1 }}</span>
+      {% endif %}
+    </div>
   </div>
+  {% endfor %}
 </div>
-{% endfor %}
 {% endblock %}

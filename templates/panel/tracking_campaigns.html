@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Rastreamento de emails</h1>
+<p class="muted">Clique numa campanha pra ver quem recebeu, e depois num destinatário pra ver o histórico completo dele.</p>
+
+{% if not campaigns %}
+<p class="muted">Nenhuma campanha enviada ainda.</p>
+{% endif %}
+
+<div class="card">
+  <table>
+    <thead>
+      <tr><th>Campanha</th><th>Enviada em</th><th>Entregues</th><th>Abertos</th><th>Clicaram</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for c in campaigns %}
+      <tr>
+        <td>{{ c.subject or ("Envio de " ~ c.send_date) }}</td>
+        <td class="muted">{{ c.decided_at or "—" }}</td>
+        <td>{{ c.events.delivered or 0 }}</td>
+        <td>{{ c.events.opened or 0 }}</td>
+        <td>{{ c.events.click or 0 }}</td>
+        <td><a class="btn btn-secondary" href="{{ url_for('newsletter_tracking_recipients', campaign_id=c.brevo_campaign_id) }}">Ver destinatários</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

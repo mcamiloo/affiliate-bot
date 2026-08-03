@@ -8,7 +8,7 @@
   :root {
     color-scheme: light dark;
     --bg: #0b0d12; --surface: #151822; --text: #eef0f4; --text-muted: #9aa1b2;
-    --accent: #ff5f6d; --border: #262b3a; --ok: #35c46f; --danger: #ff5f6d;
+    --accent: #ff5f6d; --accent-2: #d9822b; --border: #262b3a; --ok: #35c46f; --danger: #ff5f6d;
   }
   @media (prefers-color-scheme: light) {
     :root { --bg: #f5f6f8; --surface: #ffffff; --text: #14161c; --text-muted: #5c6270; --border: #e4e6eb; }
@@ -76,7 +76,11 @@
     .sidebar nav a { white-space: nowrap; }
     .sidebar button.btn-logout { width: auto; white-space: nowrap; }
   }
+  .rate-bar-track { background: var(--border); border-radius: 999px; height: 6px; overflow: hidden; margin-top: 0.3rem; }
+  .rate-bar-fill { height: 100%; border-radius: 999px; }
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; }
 </style>
+{% block extra_style %}{% endblock %}
 </head>
 <body>
 <div class="layout">
@@ -89,6 +93,7 @@
       <a href="/schedule" class="{{ 'active' if request.path.startswith('/schedule') else '' }}">Horários agendados</a>
       <a href="/newsletter/compose" class="{{ 'active' if request.path.startswith('/newsletter/compose') else '' }}">Novo email</a>
       <a href="/subscribers" class="{{ 'active' if request.path.startswith('/subscribers') else '' }}">Assinantes</a>
+      <a href="/newsletter/tracking" class="{{ 'active' if request.path.startswith('/newsletter/tracking') else '' }}">Rastreamento</a>
       <a href="/newsletter/stats" class="{{ 'active' if request.path.startswith('/newsletter/stats') else '' }}">Estatísticas</a>
     </nav>
     <form method="post" action="{{ url_for('logout') }}">

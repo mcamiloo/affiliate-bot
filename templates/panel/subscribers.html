@@ -2,6 +2,13 @@
 {% block content %}
 <h1>Assinantes</h1>
 
+{% set active_count = subscribers | selectattr("status", "equalto", "active") | list | length %}
+<div class="stat-row">
+  <div class="stat"><div class="value">{{ subscribers | length }}</div><div class="label">total</div></div>
+  <div class="stat"><div class="value">{{ active_count }}</div><div class="label">ativos</div></div>
+  <div class="stat"><div class="value">{{ subscribers | length - active_count }}</div><div class="label">descadastrados</div></div>
+</div>
+
 <form method="get" class="card" style="display:flex; gap:0.6rem;">
   <input type="text" name="q" value="{{ search }}" placeholder="Buscar por email..."
          style="flex:1; font: inherit; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem;">
@@ -11,7 +18,7 @@
 <div class="card">
   <table>
     <thead>
-      <tr><th>Email</th><th>Status</th><th>Assinou em</th><th>Última interação</th></tr>
+      <tr><th>Email</th><th>Status</th><th>Assinou em</th></tr>
     </thead>
     <tbody>
       {% for sub in subscribers %}
@@ -24,17 +31,16 @@
           <span class="status-pill bad">descadastrado</span>
           {% endif %}
         </td>
-        <td class="muted">{{ sub.consented_at or "—" }}</td>
         <td class="muted">
-          {% if sub.last_event %}
-            {{ sub.last_event.event }} · {{ sub.last_event.occurred_at }}
+          {% if sub.consented_at %}
+            {{ to_uk_local(sub.consented_at).strftime('%d/%m/%Y %H:%M') }}
           {% else %}
-            sem registro
+            —
           {% endif %}
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="4" class="muted">Nenhum assinante encontrado.</td></tr>
+      <tr><td colspan="3" class="muted">Nenhum assinante encontrado.</td></tr>
       {% endfor %}
     </tbody>
   </table>

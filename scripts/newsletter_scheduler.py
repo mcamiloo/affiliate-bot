@@ -84,7 +84,11 @@ def sync_subscribers(db: DBManager) -> None:
         if not email:
             continue
         status = "unsubscribed" if contact.get("emailBlacklisted") else "active"
-        consented_at = (contact.get("attributes") or {}).get("CONSENT_TIMESTAMP")
+        # CONSENT_TIMESTAMP só existe pra quem passou pelo formulário depois
+        # que esse atributo foi adicionado — contatos mais antigos (ou
+        # criados de outro jeito) não têm. createdAt é o próprio Brevo
+        # quem gera, sempre existe, e é a melhor aproximação disponível.
+        consented_at = (contact.get("attributes") or {}).get("CONSENT_TIMESTAMP") or contact.get("createdAt")
         db.upsert_subscriber(
             email=email,
             brevo_contact_id=contact.get("id"),

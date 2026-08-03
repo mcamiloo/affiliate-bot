@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="muted"><a href="{{ url_for('queue') }}">← Fila de aprovação</a></p>
+<h1>{{ draft.subject or ("Envio de " ~ draft.send_date) }}</h1>
+
+<div class="card">
+  <p class="muted" style="margin-top:0;">
+    Status: <span class="status-pill {{ 'ok' if draft.status in ('approved', 'sent') else ('bad' if draft.status == 'rejected' else '') }}">{{ draft.status }}</span>
+    · criado em {{ draft.created_at }}
+    {% if draft.decided_at %} · decidido em {{ draft.decided_at }}{% endif %}
+    {% if draft.brevo_campaign_id %} · campaign_id {{ draft.brevo_campaign_id }}{% endif %}
+  </p>
+  {% if draft.offer_ids %}
+  <p class="muted">{{ draft.offer_ids | length }} oferta(s) selecionada(s) automaticamente.</p>
+  {% endif %}
+
+  <div style="display:flex; gap:0.6rem; flex-wrap:wrap; margin-bottom:0.8rem;">
+    {% if draft.brevo_campaign_id %}
+    <a class="btn btn-secondary" href="{{ url_for('newsletter_tracking_recipients', campaign_id=draft.brevo_campaign_id) }}">Ver rastreamento</a>
+    {% endif %}
+    <form class="inline" method="post" action="{{ url_for('replicate_draft', draft_id=draft.id) }}">
+      <button type="submit" class="btn-secondary">Replicar como novo rascunho</button>
+    </form>
+    <a class="btn btn-secondary" href="{{ url_for('compose_email', from_draft_id=draft.id) }}">Editar para nova publicação</a>
+  </div>
+
+  <iframe src="{{ url_for('preview_draft', draft_id=draft.id) }}"></iframe>
+</div>
+{% endblock %}

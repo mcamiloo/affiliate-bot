@@ -1,28 +1,58 @@
 {% extends "base.html" %}
+{% block extra_style %}
+<link href="https://unpkg.com/grapesjs@0.23.3/dist/css/grapes.min.css" rel="stylesheet">
+<link href="https://unpkg.com/grapesjs-preset-newsletter@1.0.2/dist/grapesjs-preset-newsletter.min.css" rel="stylesheet">
+<style>
+  /* GrapesJS vem com tema claro fixo — só ajusta o suficiente pra não
+     destoar muito do resto do painel (dark mode), sem reescrever a UI
+     inteira dele. */
+  #gjs { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .gjs-cv-canvas { background: #f5f6f8; }
+</style>
+{% endblock %}
 {% block content %}
 <h1>Novo email avulso</h1>
-<p class="muted">Cole o HTML pronto (ou envie um arquivo .html) — vira um rascunho na fila de aprovação, com opção de mandar um teste antes de aprovar de verdade.</p>
+<p class="muted">Monte visualmente arrastando blocos, ou clique no ícone de código (&lt;/&gt;) na barra do editor pra colar/editar o HTML direto. Também dá pra subir um arquivo .html pronto (substitui o que estiver no editor).</p>
 
 {% if error %}<div class="flash" style="border-color: var(--danger);">{{ error }}</div>{% endif %}
 
-<form method="post" enctype="multipart/form-data" class="card">
+<form method="post" enctype="multipart/form-data" class="card" id="compose-form" onsubmit="return prepareSubmit();">
   <label class="muted" for="subject">Assunto</label><br>
   <input type="text" id="subject" name="subject" value="{{ subject }}" required
          style="width: 100%; font: inherit; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem; margin: 0.3rem 0 0.8rem;">
 
-  <label class="muted" for="html_file">Arquivo .html pronto (opcional — substitui o texto colado abaixo)</label><br>
+  <label class="muted" for="html_file">Arquivo .html pronto (opcional — substitui o conteúdo do editor abaixo)</label><br>
   <input type="file" id="html_file" name="html_file" accept=".html,.htm" style="margin: 0.3rem 0 0.8rem;">
 
-  <label class="muted" for="html_content">Ou cole o HTML aqui</label><br>
-  <textarea id="html_content" name="html_content" rows="10"
-            style="width: 100%; font: monospace; font-size: 0.8rem; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem; margin: 0.3rem 0 0.8rem;"
-            oninput="document.getElementById('preview').srcdoc = this.value;">{{ html_content }}</textarea>
+  <div id="gjs">{{ html_content | safe }}</div>
+  <textarea name="html_content" id="html_content" hidden></textarea>
 
-  <button type="submit" class="btn-approve">Criar rascunho</button>
+  <button type="submit" class="btn-approve" style="margin-top:0.8rem;">Criar rascunho</button>
 </form>
 
-<div class="card">
-  <p class="muted" style="margin-top:0;">Pré-visualização (atualiza ao digitar acima — arquivo enviado não aparece aqui até você criar o rascunho)</p>
-  <iframe id="preview" srcdoc="{{ html_content }}"></iframe>
-</div>
+<script src="https://unpkg.com/grapesjs@0.23.3/dist/grapes.min.js"></script>
+<script src="https://unpkg.com/grapesjs-preset-newsletter@1.0.2/dist/grapesjs-preset-newsletter.min.js"></script>
+<script>
+  // Editor 100% no navegador — o servidor só recebe o HTML final (mesmo
+  // fluxo de sempre, via textarea#html_content), então não é uma
+  // superfície de ataque nova além do que o compose já aceitava.
+  const editor = grapesjs.init({
+    container: '#gjs',
+    height: '560px',
+    fromElement: true,
+    storageManager: false,
+    plugins: ['grapesjs-preset-newsletter'],
+    pluginsOpts: { 'grapesjs-preset-newsletter': {} },
+  });
+
+  function prepareSubmit() {
+    const fileInput = document.getElementById('html_file');
+    if (!fileInput.files.length) {
+      // CSS inline é o que garante que o email renderiza igual na
+      // maioria dos clientes (muitos ignoram <style> externo/embutido).
+      document.getElementById('html_content').value = editor.runCommand('gjs-get-inlined-html');
+    }
+    return true;
+  }
+</script>
 {% endblock %}
