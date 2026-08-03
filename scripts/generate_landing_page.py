@@ -72,6 +72,12 @@ def render_privacy() -> str:
     )
 
 
+def render_thank_you() -> str:
+    env = Environment(loader=FileSystemLoader(TEMPLATES_DIR), autoescape=True)
+    template = env.get_template("thank_you.html.j2")
+    return template.render(site_title=SITE_TITLE)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--limit", type=int, default=DEFAULT_LIMIT, help="Quantidade máxima de ofertas na página.")
@@ -90,9 +96,13 @@ def main() -> None:
     privacy_out = args.out.parent / "privacy.html"
     privacy_out.write_text(render_privacy(), encoding="utf-8")
 
+    thank_you_out = args.out.parent / "thank-you.html"
+    thank_you_out.write_text(render_thank_you(), encoding="utf-8")
+
     with_image = sum(1 for o in offers if o["image_url"])
     print(f"✅ {len(offers)} oferta(s) renderizada(s) ({with_image} com imagem) -> {args.out}")
     print(f"✅ Página de privacidade -> {privacy_out}")
+    print(f"✅ Página de agradecimento -> {thank_you_out}")
 
 
 if __name__ == "__main__":

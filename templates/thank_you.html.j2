@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Subscribed — {{ site_title }}</title>
+<meta name="robots" content="noindex">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #0b0d12; --surface: #151822; --text: #eef0f4; --text-muted: #9aa1b2;
+    --accent: #ff5f6d; --accent-2: #ff9f43; --border: #262b3a;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #f5f6f8; --surface: #ffffff; --text: #14161c; --text-muted: #5c6270; --border: #e4e6eb; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    font-family: -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text);
+    padding: 1.5rem;
+  }
+  main {
+    max-width: 480px; text-align: center; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 2.5rem 2rem;
+  }
+  .badge { font-size: 2.5rem; margin-bottom: 0.5rem; }
+  h1 { font-size: 1.5rem; margin: 0 0 0.75rem; }
+  p { color: var(--text-muted); line-height: 1.6; margin: 0 0 1.75rem; }
+  a.back-link {
+    display: inline-block; text-decoration: none; font-weight: 700; font-size: 0.9rem;
+    color: #fff; background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    padding: 0.75rem 1.5rem; border-radius: 8px;
+  }
+</style>
+</head>
+<body>
+<main>
+  <div class="badge">🎉</div>
+  <h1>You're subscribed!</h1>
+  <p>Your subscription to {{ site_title }} is confirmed. Keep an eye on your inbox — today's hand-picked deals will start landing there soon.</p>
+  <a class="back-link" href="index.html">← Back to {{ site_title }}</a>
+</main>
+</body>
+</html>
