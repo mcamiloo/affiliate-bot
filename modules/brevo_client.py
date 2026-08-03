@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any, Optional
+from urllib.parse import quote
 
 import httpx
 
@@ -180,7 +181,7 @@ def set_contact_attributes(email: str, attributes: dict[str, Any]) -> None:
     backfill do UNSUB_TOKEN (scripts/backfill_unsub_tokens.py) pra quem
     assinou antes desse token existir."""
     with _client() as client:
-        response = client.put(f"/contacts/{email}", json={"attributes": attributes})
+        response = client.put(f"/contacts/{quote(email, safe='')}", json={"attributes": attributes})
         if response.status_code == 404:
             return
         _raise_for_status(response)
@@ -192,7 +193,7 @@ def unsubscribe_contact(email: str) -> None:
     — chamado assim que alguém clica no link de descadastro próprio
     (ver utils/unsubscribe.py), pra não esperar o próximo sync periódico."""
     with _client() as client:
-        response = client.put(f"/contacts/{email}", json={"emailBlacklisted": True})
+        response = client.put(f"/contacts/{quote(email, safe='')}", json={"emailBlacklisted": True})
         if response.status_code == 404:
             return
         _raise_for_status(response)

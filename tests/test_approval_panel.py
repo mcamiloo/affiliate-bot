@@ -383,6 +383,53 @@ def test_run_cycle_now_requires_login(anon_client):
     assert "/login" in response.headers["Location"]
 
 
+# --- API do widget (Mac/iPad) -----------------------------------------------
+
+
+def test_api_widget_snapshot_rejects_missing_token(anon_client):
+    response = anon_client.get("/api/widget-snapshot")
+    assert response.status_code == 401
+
+
+def test_api_widget_snapshot_rejects_wrong_token(anon_client, monkeypatch):
+    monkeypatch.setattr(approval_panel.config, "WIDGET_API_TOKEN", "right-token")
+    response = anon_client.get("/api/widget-snapshot", headers={"Authorization": "Bearer wrong-token"})
+    assert response.status_code == 401
+
+
+def test_api_widget_snapshot_503_when_file_missing(anon_client, monkeypatch, tmp_path):
+    monkeypatch.setattr(approval_panel.config, "WIDGET_API_TOKEN", "right-token")
+    monkeypatch.setattr(approval_panel.config, "WIDGET_SNAPSHOT_PATH", tmp_path / "missing.json")
+    response = anon_client.get("/api/widget-snapshot", headers={"Authorization": "Bearer right-token"})
+    assert response.status_code == 503
+
+
+def test_api_widget_snapshot_returns_file_contents(anon_client, monkeypatch, tmp_path):
+    monkeypatch.setattr(approval_panel.config, "WIDGET_API_TOKEN", "right-token")
+    snapshot_path = tmp_path / "snapshot.json"
+    snapshot_path.write_text('{"offers_today": 3}')
+    monkeypatch.setattr(approval_panel.config, "WIDGET_SNAPSHOT_PATH", snapshot_path)
+
+    response = anon_client.get("/api/widget-snapshot", headers={"Authorization": "Bearer right-token"})
+
+    assert response.status_code == 200
+    assert response.get_json() == {"offers_today": 3}
+
+
+def test_api_run_cycle_now_rejects_missing_token(anon_client):
+    response = anon_client.post("/api/cycle/run")
+    assert response.status_code == 401
+
+
+def test_api_run_cycle_now_spawns_subprocess_with_valid_token(anon_client, monkeypatch):
+    monkeypatch.setattr(approval_panel.config, "WIDGET_API_TOKEN", "right-token")
+    with patch.object(approval_panel.subprocess, "Popen") as popen_mock:
+        response = anon_client.post("/api/cycle/run", headers={"Authorization": "Bearer right-token"})
+
+    assert response.status_code == 200
+    popen_mock.assert_called_once()
+
+
 # --- descadastro próprio (HMAC) --------------------------------------------
 
 
@@ -475,6 +522,32 @@ def test_brevo_webhook_rejects_incomplete_payload(anon_client, monkeypatch):
     assert response.status_code == 400
 
 
+@pytest.mark.parametrize(
+    "raw_event, normalized",
+    [
+        ("hard_bounce", "hardBounce"),
+        ("soft_bounce", "softBounce"),
+        ("soft_bounced", "softBounce"),
+        ("unsubscribe", "unsubscribed"),
+        ("delivered", "delivered"),  # já igual nas duas convenções, não mexe
+    ],
+)
+def test_brevo_webhook_normalizes_event_name(anon_client, monkeypatch, raw_event, normalized):
+    # A documentação do Brevo é inconsistente sobre camelCase vs
+    # snake_case no payload real — normaliza pra não depender de acertar
+    # qual convenção está em vigor (ver _BREVO_EVENT_ALIASES).
+    monkeypatch.setattr(approval_panel.config, "BREVO_WEBHOOK_SECRET", "right-secret")
+    response = anon_client.post(
+        "/api/brevo-webhook",
+        json={"email": "a@b.com", "event": raw_event, "camp_id": 1, "date_event": "2026-08-03 10:00:00"},
+        headers={"X-Brevo-Webhook-Secret": "right-secret"},
+        environ_overrides={"REMOTE_ADDR": "1.179.112.5"},
+    )
+    assert response.status_code == 200
+    with DBManager() as db:
+        assert db.campaign_event_counts(1) == {normalized: 1}
+
+
 # --- compose manual + mandar teste ------------------------------------------
 
 
@@ -500,6 +573,24 @@ def test_compose_post_creates_adhoc_draft_in_queue(client):
     assert drafts[0]["subject"] == "Assunto de teste"
     assert drafts[0]["scheduled_send_id"] is None
     assert drafts[0]["brevo_campaign_id"] == 555
+
+
+def test_compose_post_with_uploaded_file_uses_file_contents(client):
+    import io
+
+    with patch.object(approval_panel.brevo_client, "create_campaign_draft", return_value=777) as create_mock:
+        response = client.post(
+            "/newsletter/compose",
+            data={
+                "subject": "Assunto via arquivo",
+                "html_content": "",
+                "html_file": (io.BytesIO(b"<p>conteudo do arquivo</p>"), "email.html"),
+            },
+            content_type="multipart/form-data",
+        )
+
+    assert response.status_code == 302
+    create_mock.assert_called_once_with("Assunto via arquivo", "<p>conteudo do arquivo</p>")
 
 
 def test_compose_post_missing_fields_shows_error(client):

@@ -149,8 +149,24 @@ def test_unsubscribe_contact_blacklists_email(monkeypatch):
     import json
 
     assert captured["method"] == "PUT"
-    assert captured["url"].endswith("/contacts/a@b.com")
+    # email vai URL-encoded no path (@ -> %40) — Brevo decodifica de volta,
+    # mas se não escaparmos, um email com "/" ou "?" quebraria a URL.
+    assert captured["url"].endswith("/contacts/a%40b.com")
     assert json.loads(captured["body"])["emailBlacklisted"] is True
+
+
+def test_unsubscribe_contact_url_encodes_special_characters(monkeypatch):
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url)
+        return httpx.Response(204)
+
+    monkeypatch.setattr(brevo_client, "_client", lambda: _mock_client(handler))
+
+    brevo_client.unsubscribe_contact("user+tag@example.com")
+
+    assert captured["url"].endswith("/contacts/user%2Btag%40example.com")
 
 
 def test_unsubscribe_contact_ignores_404(monkeypatch):

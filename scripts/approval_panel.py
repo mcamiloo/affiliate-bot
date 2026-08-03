@@ -54,6 +54,19 @@ _WHATSAPP_LOG_LINE_RE = re.compile(r"^(?P<ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}
 # assina o payload (sem HMAC nativo). Ver _require_brevo_webhook_auth.
 _BREVO_WEBHOOK_IP_RANGE = ipaddress.ip_network("1.179.112.0/20")
 
+# A documentação do Brevo é inconsistente sobre o valor exato do campo
+# "event" no payload do webhook — exemplos oficiais mostram tanto
+# camelCase (hardBounce/unsubscribed) quanto snake_case (hard_bounce/
+# soft_bounced/unsubscribe) dependendo da página. Normaliza pro nome
+# camelCase (o mesmo usado em templates/panel/stats.html) pra não
+# depender de acertar qual convenção está em vigor.
+_BREVO_EVENT_ALIASES = {
+    "hard_bounce": "hardBounce",
+    "soft_bounce": "softBounce",
+    "soft_bounced": "softBounce",
+    "unsubscribe": "unsubscribed",
+}
+
 # Bootstrap: criado uma única vez (create_admin_user_if_absent não
 # sobrescreve se já existir admin) — força troca no primeiro login, então
 # a senha fraca só vale até o primeiro acesso de verdade.
@@ -370,6 +383,8 @@ def api_brevo_webhook():
 
     if not email or not event or not occurred_at:
         return jsonify({"error": "missing fields"}), 400
+
+    event = _BREVO_EVENT_ALIASES.get(event, event)
 
     with DBManager() as db:
         db.record_email_event(campaign_id, email, event, occurred_at)
