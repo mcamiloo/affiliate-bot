@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Assinantes</h1>
+
+<form method="get" class="card" style="display:flex; gap:0.6rem;">
+  <input type="text" name="q" value="{{ search }}" placeholder="Buscar por email..."
+         style="flex:1; font: inherit; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem;">
+  <button type="submit" class="btn-secondary">Buscar</button>
+</form>
+
+<div class="card">
+  <table>
+    <thead>
+      <tr><th>Email</th><th>Status</th><th>Assinou em</th><th>Última interação</th></tr>
+    </thead>
+    <tbody>
+      {% for sub in subscribers %}
+      <tr>
+        <td>{{ sub.email }}</td>
+        <td>
+          {% if sub.status == 'active' %}
+          <span class="status-pill ok">ativo</span>
+          {% else %}
+          <span class="status-pill bad">descadastrado</span>
+          {% endif %}
+        </td>
+        <td class="muted">{{ sub.consented_at or "—" }}</td>
+        <td class="muted">
+          {% if sub.last_event %}
+            {{ sub.last_event.event }} · {{ sub.last_event.occurred_at }}
+          {% else %}
+            sem registro
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="muted">Nenhum assinante encontrado.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -381,3 +381,187 @@ def test_run_cycle_now_requires_login(anon_client):
     response = anon_client.post("/cycle/run")
     assert response.status_code == 302
     assert "/login" in response.headers["Location"]
+
+
+# --- descadastro próprio (HMAC) --------------------------------------------
+
+
+def test_unsubscribe_with_valid_token_marks_locally_and_calls_brevo(anon_client, monkeypatch):
+    monkeypatch.setattr(approval_panel.config, "NEWSLETTER_UNSUB_SECRET", "test-secret")
+    with DBManager() as db:
+        db.upsert_subscriber(email="a@b.com", brevo_contact_id=1, status="active")
+
+    from utils.unsubscribe import compute_unsub_token
+
+    token = compute_unsub_token("a@b.com")
+
+    with patch.object(approval_panel.brevo_client, "unsubscribe_contact") as unsub_mock:
+        response = anon_client.get(f"/newsletter/unsubscribe?email=a@b.com&token={token}")
+
+    assert response.status_code == 200
+    unsub_mock.assert_called_once_with("a@b.com")
+    with DBManager() as db:
+        assert db.list_subscribers()[0]["status"] == "unsubscribed"
+
+
+def test_unsubscribe_with_invalid_token_rejected(anon_client, monkeypatch):
+    monkeypatch.setattr(approval_panel.config, "NEWSLETTER_UNSUB_SECRET", "test-secret")
+    with DBManager() as db:
+        db.upsert_subscriber(email="a@b.com", brevo_contact_id=1, status="active")
+
+    response = anon_client.get("/newsletter/unsubscribe?email=a@b.com&token=wrong")
+
+    assert response.status_code == 403
+    with DBManager() as db:
+        assert db.list_subscribers()[0]["status"] == "active"
+
+
+def test_unsubscribe_does_not_require_login(anon_client, monkeypatch):
+    monkeypatch.setattr(approval_panel.config, "NEWSLETTER_UNSUB_SECRET", "test-secret")
+    response = anon_client.get("/newsletter/unsubscribe?email=a@b.com&token=wrong")
+    assert response.status_code == 403  # não redirecionou pro /login
+
+
+# --- webhook de marketing do Brevo ------------------------------------------
+
+
+def test_brevo_webhook_rejects_missing_secret(anon_client):
+    response = anon_client.post("/api/brevo-webhook", json={"email": "a@b.com", "event": "opened"})
+    assert response.status_code == 401
+
+
+def test_brevo_webhook_rejects_wrong_secret(anon_client, monkeypatch):
+    monkeypatch.setattr(approval_panel.config, "BREVO_WEBHOOK_SECRET", "right-secret")
+    response = anon_client.post(
+        "/api/brevo-webhook",
+        json={"email": "a@b.com", "event": "opened"},
+        headers={"X-Brevo-Webhook-Secret": "wrong-secret"},
+    )
+    assert response.status_code == 401
+
+
+def test_brevo_webhook_rejects_right_secret_wrong_ip(anon_client, monkeypatch):
+    monkeypatch.setattr(approval_panel.config, "BREVO_WEBHOOK_SECRET", "right-secret")
+    response = anon_client.post(
+        "/api/brevo-webhook",
+        json={"email": "a@b.com", "event": "opened", "camp_id": 1, "date_event": "2026-08-03 10:00:00"},
+        headers={"X-Brevo-Webhook-Secret": "right-secret"},
+        environ_overrides={"REMOTE_ADDR": "8.8.8.8"},
+    )
+    assert response.status_code == 401
+
+
+def test_brevo_webhook_accepts_right_secret_and_ip_in_range(anon_client, monkeypatch):
+    monkeypatch.setattr(approval_panel.config, "BREVO_WEBHOOK_SECRET", "right-secret")
+    response = anon_client.post(
+        "/api/brevo-webhook",
+        json={"email": "a@b.com", "event": "opened", "camp_id": 1, "date_event": "2026-08-03 10:00:00"},
+        headers={"X-Brevo-Webhook-Secret": "right-secret"},
+        environ_overrides={"REMOTE_ADDR": "1.179.112.5"},
+    )
+    assert response.status_code == 200
+    with DBManager() as db:
+        assert db.campaign_event_counts(1) == {"opened": 1}
+
+
+def test_brevo_webhook_rejects_incomplete_payload(anon_client, monkeypatch):
+    monkeypatch.setattr(approval_panel.config, "BREVO_WEBHOOK_SECRET", "right-secret")
+    response = anon_client.post(
+        "/api/brevo-webhook",
+        json={"email": "a@b.com"},
+        headers={"X-Brevo-Webhook-Secret": "right-secret"},
+        environ_overrides={"REMOTE_ADDR": "1.179.112.5"},
+    )
+    assert response.status_code == 400
+
+
+# --- compose manual + mandar teste ------------------------------------------
+
+
+def test_compose_get_requires_login(anon_client):
+    response = anon_client.get("/newsletter/compose")
+    assert response.status_code == 302
+    assert "/login" in response.headers["Location"]
+
+
+def test_compose_post_creates_adhoc_draft_in_queue(client):
+    with patch.object(approval_panel.brevo_client, "create_campaign_draft", return_value=555) as create_mock:
+        response = client.post(
+            "/newsletter/compose",
+            data={"subject": "Assunto de teste", "html_content": "<p>oi</p>"},
+        )
+
+    assert response.status_code == 302
+    create_mock.assert_called_once_with("Assunto de teste", "<p>oi</p>")
+
+    with DBManager() as db:
+        drafts = db.list_pending_drafts()
+    assert len(drafts) == 1
+    assert drafts[0]["subject"] == "Assunto de teste"
+    assert drafts[0]["scheduled_send_id"] is None
+    assert drafts[0]["brevo_campaign_id"] == 555
+
+
+def test_compose_post_missing_fields_shows_error(client):
+    response = client.post("/newsletter/compose", data={"subject": "", "html_content": ""})
+    assert response.status_code == 400
+    with DBManager() as db:
+        assert db.list_pending_drafts() == []
+
+
+def test_send_test_draft_calls_brevo(client):
+    draft_id = _create_draft(timedelta(hours=2), campaign_id=42)
+
+    with patch.object(approval_panel.brevo_client, "send_test_email") as test_mock:
+        response = client.post(f"/queue/{draft_id}/test")
+
+    assert response.status_code == 302
+    test_mock.assert_called_once_with(42, [approval_panel.config.NEWSLETTER_TEST_EMAIL])
+
+
+# --- assinantes + estatísticas -----------------------------------------------
+
+
+def test_subscribers_lists_all_statuses(client):
+    with DBManager() as db:
+        db.upsert_subscriber(email="active@b.com", brevo_contact_id=1, status="active")
+        db.upsert_subscriber(email="gone@b.com", brevo_contact_id=2, status="unsubscribed")
+
+    response = client.get("/subscribers")
+    assert response.status_code == 200
+    assert b"active@b.com" in response.data
+    assert b"gone@b.com" in response.data
+
+
+def test_subscribers_search_filters_by_email(client):
+    with DBManager() as db:
+        db.upsert_subscriber(email="findme@b.com", brevo_contact_id=1, status="active")
+        db.upsert_subscriber(email="other@b.com", brevo_contact_id=2, status="active")
+
+    response = client.get("/subscribers?q=findme")
+    assert b"findme@b.com" in response.data
+    assert b"other@b.com" not in response.data
+
+
+def test_subscribers_requires_login(anon_client):
+    response = anon_client.get("/subscribers")
+    assert response.status_code == 302
+    assert "/login" in response.headers["Location"]
+
+
+def test_newsletter_stats_shows_campaign_event_counts(client):
+    draft_id = _create_draft(timedelta(hours=-2), campaign_id=42)
+    with DBManager() as db:
+        db.update_draft_status(draft_id, "sent")
+        db.record_email_event(42, "a@b.com", "delivered", "2026-08-03 10:00:00")
+        db.record_email_event(42, "a@b.com", "opened", "2026-08-03 10:05:00")
+
+    response = client.get("/newsletter/stats")
+    assert response.status_code == 200
+    assert b"campaign_id 42" in response.data
+
+
+def test_newsletter_stats_requires_login(anon_client):
+    response = anon_client.get("/newsletter/stats")
+    assert response.status_code == 302
+    assert "/login" in response.headers["Location"]

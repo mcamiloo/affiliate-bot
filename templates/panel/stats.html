@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Estatísticas de email</h1>
+<p class="muted">Dados vêm do webhook do Brevo em tempo real (delivered/opened/click/bounce) — só campanhas já enviadas aparecem aqui.</p>
+
+{% if not campaigns %}
+<p class="muted">Nenhuma campanha enviada ainda.</p>
+{% endif %}
+
+{% for c in campaigns %}
+<div class="card">
+  <p>
+    <strong>{{ c.subject or ("Envio de " ~ c.send_date) }}</strong>
+    <span class="muted">— campaign_id {{ c.brevo_campaign_id }} · {{ c.decided_at or "—" }}</span>
+  </p>
+  <div class="stat-row">
+    <div class="stat"><div class="value">{{ c.events.delivered or 0 }}</div><div class="label">entregues</div></div>
+    <div class="stat"><div class="value">{{ c.events.opened or 0 }}</div><div class="label">abertos</div></div>
+    <div class="stat"><div class="value">{{ c.events.click or 0 }}</div><div class="label">clicaram</div></div>
+    <div class="stat"><div class="value">{{ (c.events.hardBounce or 0) + (c.events.softBounce or 0) }}</div><div class="label">bounce</div></div>
+    <div class="stat"><div class="value">{{ c.events.unsubscribed or 0 }}</div><div class="label">descadastros</div></div>
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

@@ -59,10 +59,13 @@ CREATE TABLE IF NOT EXISTS scheduled_sends (
 );
 
 -- Rascunho gerado ~1h antes do horário-alvo, aguardando aprovação manual
--- no painel local antes de ir pro Brevo de fato.
+-- no painel local antes de ir pro Brevo de fato. scheduled_send_id é
+-- opcional porque um rascunho também pode vir do compose manual
+-- (/newsletter/compose) sem estar atrelado a um envio agendado do dia.
 CREATE TABLE IF NOT EXISTS email_drafts (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-    scheduled_send_id   INTEGER NOT NULL REFERENCES scheduled_sends (id),
+    scheduled_send_id   INTEGER REFERENCES scheduled_sends (id),
+    subject             TEXT,
     html_content        TEXT NOT NULL,
     offer_ids           TEXT,
     brevo_campaign_id   INTEGER,
@@ -86,6 +89,22 @@ CREATE TABLE IF NOT EXISTS admin_users (
     must_change_password  INTEGER NOT NULL DEFAULT 1,
     updated_at            TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Eventos por destinatário reportados pelo webhook de marketing do Brevo
+-- (POST /api/brevo-webhook — ver approval_panel.py) — um evento por
+-- linha, um POST por evento (o Brevo não manda em lote). Sem limite de
+-- 6 meses como a API de consulta do Brevo, porque fica guardado aqui.
+CREATE TABLE IF NOT EXISTS email_events (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    campaign_id   INTEGER,
+    email         TEXT NOT NULL,
+    event         TEXT NOT NULL,
+    occurred_at   TEXT NOT NULL,
+    received_at   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_email_events_campaign ON email_events (campaign_id);
+CREATE INDEX IF NOT EXISTS idx_email_events_email ON email_events (email);
 """
 
 # CREATE TABLE IF NOT EXISTS não adiciona colunas a uma tabela já existente
@@ -199,6 +218,52 @@ class DBManager:
             column = statement.split("ADD COLUMN")[1].split()[0]
             if column not in existing:
                 self._conn.execute(statement)
+        self._migrate_email_drafts_adhoc()
+
+    def _migrate_email_drafts_adhoc(self) -> None:
+        """Bancos criados antes do compose manual têm email_drafts com
+        scheduled_send_id NOT NULL e sem coluna subject. SQLite não
+        suporta remover NOT NULL via ALTER, então reconstrói a tabela
+        quando detecta o formato antigo (idempotente — não faz nada se já
+        migrado)."""
+        info = list(self._conn.execute("PRAGMA table_info(email_drafts);"))
+        scheduled_send_col = next(row for row in info if row["name"] == "scheduled_send_id")
+        has_subject = any(row["name"] == "subject" for row in info)
+        if not scheduled_send_col["notnull"] and has_subject:
+            return
+
+        # PRAGMA foreign_keys só tem efeito fora de uma transação ativa.
+        self._conn.execute("PRAGMA foreign_keys = OFF;")
+        with self._conn:
+            self._conn.executescript(
+                """
+                CREATE TABLE email_drafts_new (
+                    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                    scheduled_send_id   INTEGER REFERENCES scheduled_sends (id),
+                    subject             TEXT,
+                    html_content        TEXT NOT NULL,
+                    offer_ids           TEXT,
+                    brevo_campaign_id   INTEGER,
+                    status              TEXT NOT NULL DEFAULT 'pending_approval' CHECK (
+                                            status IN ('pending_approval', 'approved', 'sent', 'rejected')
+                                        ),
+                    created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+                    decided_at          TEXT
+                );
+                INSERT INTO email_drafts_new (
+                    id, scheduled_send_id, html_content, offer_ids,
+                    brevo_campaign_id, status, created_at, decided_at
+                )
+                SELECT
+                    id, scheduled_send_id, html_content, offer_ids,
+                    brevo_campaign_id, status, created_at, decided_at
+                FROM email_drafts;
+                DROP TABLE email_drafts;
+                ALTER TABLE email_drafts_new RENAME TO email_drafts;
+                CREATE INDEX IF NOT EXISTS idx_email_drafts_status ON email_drafts (status);
+                """
+            )
+        self._conn.execute("PRAGMA foreign_keys = ON;")
 
     def is_duplicate(self, item_id: str) -> bool:
         """Retorna True se a oferta com esse item_id já foi publicada."""
@@ -351,6 +416,30 @@ class DBManager:
         )
         return cursor.fetchone()[0]
 
+    def list_subscribers(self, search: Optional[str] = None) -> list[dict[str, Any]]:
+        """Todos os assinantes (ativos e descadastrados) — usado pela
+        página /subscribers do painel, diferente de list_active_subscribers
+        (que só serve pro envio de fato)."""
+        if search:
+            cursor = self._conn.execute(
+                "SELECT * FROM subscribers WHERE email LIKE ? ORDER BY email;",
+                (f"%{search}%",),
+            )
+        else:
+            cursor = self._conn.execute("SELECT * FROM subscribers ORDER BY email;")
+        return [dict(row) for row in cursor.fetchall()]
+
+    def mark_subscriber_unsubscribed(self, email: str) -> None:
+        """Reflete na hora o clique no link de descadastro próprio (ver
+        utils/unsubscribe.py) — não espera o próximo sync periódico a
+        partir do Brevo, que é quem também precisa ser avisado (ver
+        brevo_client.unsubscribe_contact, chamado à parte)."""
+        with self._conn:
+            self._conn.execute(
+                "UPDATE subscribers SET status = 'unsubscribed', synced_at = datetime('now') WHERE email = ?;",
+                (email,),
+            )
+
     # --- scheduled_sends --------------------------------------------------
 
     def get_scheduled_send_by_date(self, send_date: str) -> Optional[dict[str, Any]]:
@@ -439,12 +528,28 @@ class DBManager:
             )
             return cursor.lastrowid
 
+    def create_adhoc_email_draft(
+        self, subject: str, html_content: str, brevo_campaign_id: Optional[int]
+    ) -> int:
+        """Rascunho criado manualmente via /newsletter/compose — sem
+        scheduled_send_id, porque não está atrelado a um envio agendado
+        do dia. Entra na mesma fila de aprovação dos automáticos."""
+        with self._conn:
+            cursor = self._conn.execute(
+                """
+                INSERT INTO email_drafts (subject, html_content, brevo_campaign_id)
+                VALUES (?, ?, ?);
+                """,
+                (subject, html_content, brevo_campaign_id),
+            )
+            return cursor.lastrowid
+
     def list_pending_drafts(self) -> list[dict[str, Any]]:
         cursor = self._conn.execute(
             """
             SELECT email_drafts.*, scheduled_sends.send_date, scheduled_sends.target_time_utc
             FROM email_drafts
-            JOIN scheduled_sends ON scheduled_sends.id = email_drafts.scheduled_send_id
+            LEFT JOIN scheduled_sends ON scheduled_sends.id = email_drafts.scheduled_send_id
             WHERE email_drafts.status = 'pending_approval'
             ORDER BY email_drafts.created_at;
             """
@@ -456,7 +561,7 @@ class DBManager:
             """
             SELECT email_drafts.*, scheduled_sends.send_date, scheduled_sends.target_time_utc
             FROM email_drafts
-            JOIN scheduled_sends ON scheduled_sends.id = email_drafts.scheduled_send_id
+            LEFT JOIN scheduled_sends ON scheduled_sends.id = email_drafts.scheduled_send_id
             WHERE email_drafts.id = ?;
             """,
             (draft_id,),
@@ -485,6 +590,63 @@ class DBManager:
                 "UPDATE email_drafts SET status = ?, decided_at = datetime('now') WHERE id = ?;",
                 (status, draft_id),
             )
+
+    # --- email_events (webhook de marketing do Brevo) -------------------
+
+    def record_email_event(
+        self, campaign_id: Optional[int], email: str, event: str, occurred_at: str
+    ) -> None:
+        with self._conn:
+            self._conn.execute(
+                "INSERT INTO email_events (campaign_id, email, event, occurred_at) VALUES (?, ?, ?, ?);",
+                (campaign_id, email, event, occurred_at),
+            )
+
+    def campaign_event_counts(self, campaign_id: int) -> dict[str, int]:
+        """Contagem de destinatários únicos por tipo de evento — uma
+        pessoa que abre o mesmo email duas vezes só conta uma vez."""
+        cursor = self._conn.execute(
+            "SELECT event, COUNT(DISTINCT email) AS n FROM email_events WHERE campaign_id = ? GROUP BY event;",
+            (campaign_id,),
+        )
+        return {row["event"]: row["n"] for row in cursor.fetchall()}
+
+    def list_campaign_stats(self, limit: int = 30) -> list[dict[str, Any]]:
+        """Um resumo por rascunho já enviado ao Brevo (tem brevo_campaign_id),
+        mais recente primeiro — alimenta a página de estatísticas do painel."""
+        cursor = self._conn.execute(
+            """
+            SELECT email_drafts.id, email_drafts.subject, email_drafts.brevo_campaign_id,
+                   email_drafts.decided_at, scheduled_sends.send_date
+            FROM email_drafts
+            LEFT JOIN scheduled_sends ON scheduled_sends.id = email_drafts.scheduled_send_id
+            WHERE email_drafts.brevo_campaign_id IS NOT NULL
+            ORDER BY email_drafts.decided_at DESC
+            LIMIT ?;
+            """,
+            (limit,),
+        )
+        drafts = [dict(row) for row in cursor.fetchall()]
+        for draft in drafts:
+            draft["events"] = self.campaign_event_counts(draft["brevo_campaign_id"])
+        return drafts
+
+    def last_event_per_email(self, emails: list[str]) -> dict[str, dict[str, Any]]:
+        """Evento mais recente por email — usado pra mostrar 'visto pela
+        última vez' na lista de assinantes sem uma query por linha."""
+        if not emails:
+            return {}
+        placeholders = ",".join("?" for _ in emails)
+        cursor = self._conn.execute(
+            f"""
+            SELECT email, event, occurred_at FROM email_events
+            WHERE id IN (
+                SELECT MAX(id) FROM email_events WHERE email IN ({placeholders}) GROUP BY email
+            );
+            """,
+            emails,
+        )
+        return {row["email"]: {"event": row["event"], "occurred_at": row["occurred_at"]} for row in cursor.fetchall()}
 
     # --- admin_users (login do painel) --------------------------------
 

@@ -5,7 +5,18 @@
 // Node/TypeScript e Go, então esta function é propositalmente pequena
 // e sem lógica de negócio além de validar e repassar pro Brevo.
 
+const crypto = require("crypto");
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Mesmo HMAC de utils/unsubscribe.py (compute_unsub_token) — os dois
+// lados têm que usar o mesmo NEWSLETTER_UNSUB_SECRET. Gravado como
+// atributo do contato aqui, e referenciado no template do email via
+// {{ contact.UNSUB_TOKEN }} pro link de descadastro próprio (que convive
+// com o {{ unsubscribe }} nativo do Brevo, não o substitui).
+function computeUnsubToken(email, secret) {
+  return crypto.createHmac("sha256", secret).update(email.trim().toLowerCase()).digest("hex");
+}
 
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") {
@@ -29,9 +40,12 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: "Consent is required to subscribe." }) };
   }
 
-  const { BREVO_API_KEY, BREVO_LIST_ID, BREVO_DOI_TEMPLATE_ID, BREVO_DOI_REDIRECT_URL } = process.env;
-  if (!BREVO_API_KEY || !BREVO_LIST_ID || !BREVO_DOI_TEMPLATE_ID) {
-    console.error("Brevo env vars ausentes na Netlify (BREVO_API_KEY/BREVO_LIST_ID/BREVO_DOI_TEMPLATE_ID)");
+  const { BREVO_API_KEY, BREVO_LIST_ID, BREVO_DOI_TEMPLATE_ID, BREVO_DOI_REDIRECT_URL, NEWSLETTER_UNSUB_SECRET } =
+    process.env;
+  if (!BREVO_API_KEY || !BREVO_LIST_ID || !BREVO_DOI_TEMPLATE_ID || !NEWSLETTER_UNSUB_SECRET) {
+    console.error(
+      "Env vars ausentes na Netlify (BREVO_API_KEY/BREVO_LIST_ID/BREVO_DOI_TEMPLATE_ID/NEWSLETTER_UNSUB_SECRET)"
+    );
     return { statusCode: 500, body: JSON.stringify({ error: "Server misconfigured." }) };
   }
 
@@ -54,6 +68,7 @@ exports.handler = async (event) => {
       attributes: {
         CONSENT_TIMESTAMP: new Date().toISOString(),
         CONSENT_IP: ip,
+        UNSUB_TOKEN: computeUnsubToken(email, NEWSLETTER_UNSUB_SECRET),
       },
     }),
   });

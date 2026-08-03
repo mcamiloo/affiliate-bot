@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ "Unsubscribed" if ok else "Link inválido" }} — OmbroTechFinds</title>
+<meta name="robots" content="noindex">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #0b0d12; --surface: #151822; --text: #eef0f4; --text-muted: #9aa1b2;
+    --accent: #ff5f6d; --accent-2: #ff9f43; --border: #262b3a;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #f5f6f8; --surface: #ffffff; --text: #14161c; --text-muted: #5c6270; --border: #e4e6eb; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    font-family: -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text);
+    padding: 1.5rem;
+  }
+  main {
+    max-width: 480px; text-align: center; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 2.5rem 2rem;
+  }
+  .badge { font-size: 2.5rem; margin-bottom: 0.5rem; }
+  h1 { font-size: 1.5rem; margin: 0 0 0.75rem; }
+  p { color: var(--text-muted); line-height: 1.6; margin: 0; }
+</style>
+</head>
+<body>
+<main>
+  {% if ok %}
+  <div class="badge">✅</div>
+  <h1>You're unsubscribed</h1>
+  <p>{{ email }} won't receive the daily deals newsletter anymore. Sorry to see you go!</p>
+  {% else %}
+  <div class="badge">⚠️</div>
+  <h1>Invalid or expired link</h1>
+  <p>This unsubscribe link doesn't look right. If you still want to stop receiving emails, use the "Unsubscribe" link in the email footer instead.</p>
+  {% endif %}
+</main>
+</body>
+</html>

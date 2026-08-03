@@ -387,3 +387,110 @@ def test_hide_offer_removes_it_from_score_view_but_keeps_dedupe(db):
     assert db.list_offers_by_score(limit=10) == []
     assert db.is_duplicate("BAD1") is True
     assert db.get_offer("BAD1") is not None
+
+
+# --- email_drafts avulsos (compose manual) ----------------------------------
+
+
+def test_create_adhoc_email_draft_has_no_scheduled_send(db):
+    draft_id = db.create_adhoc_email_draft("Assunto", "<p>oi</p>", 42)
+    draft = db.get_email_draft(draft_id)
+
+    assert draft["scheduled_send_id"] is None
+    assert draft["subject"] == "Assunto"
+    assert draft["send_date"] is None
+    assert draft["target_time_utc"] is None
+
+
+def test_list_pending_drafts_includes_adhoc_alongside_scheduled(db):
+    scheduled_id = db.create_scheduled_send("2026-08-05", "2026-08-05T18:00:00+00:00", "2026-08-05T17:00:00+00:00")
+    db.create_email_draft(scheduled_id, "<html></html>", ["1"], 1)
+    db.create_adhoc_email_draft("Avulso", "<p>oi</p>", 2)
+
+    drafts = db.list_pending_drafts()
+    assert len(drafts) == 2
+
+
+def test_email_drafts_migration_is_idempotent(tmp_path):
+    # Reabrir o mesmo banco (roda _run_migrations de novo) não deve
+    # duplicar colunas nem apagar dados.
+    db_path = tmp_path / "migrate.db"
+    first = DBManager(db_path=db_path)
+    draft_id = first.create_adhoc_email_draft("Assunto", "<p>oi</p>", None)
+    first.close()
+
+    second = DBManager(db_path=db_path)
+    draft = second.get_email_draft(draft_id)
+    second.close()
+
+    assert draft["subject"] == "Assunto"
+
+
+# --- email_events (webhook do Brevo) ----------------------------------------
+
+
+def test_record_and_count_email_events(db):
+    db.record_email_event(42, "a@b.com", "delivered", "2026-08-03 10:00:00")
+    db.record_email_event(42, "a@b.com", "opened", "2026-08-03 10:05:00")
+    db.record_email_event(42, "c@d.com", "delivered", "2026-08-03 10:00:00")
+
+    counts = db.campaign_event_counts(42)
+    assert counts == {"delivered": 2, "opened": 1}
+
+
+def test_campaign_event_counts_counts_unique_emails_not_events(db):
+    # Duas aberturas da MESMA pessoa contam uma vez só.
+    db.record_email_event(42, "a@b.com", "opened", "2026-08-03 10:00:00")
+    db.record_email_event(42, "a@b.com", "opened", "2026-08-03 10:05:00")
+
+    assert db.campaign_event_counts(42) == {"opened": 1}
+
+
+def test_list_campaign_stats_only_includes_sent_campaigns(db):
+    db.create_adhoc_email_draft("Sem campanha", "<p>oi</p>", None)
+    db.create_adhoc_email_draft("Com campanha", "<p>oi</p>", 7)
+    db.record_email_event(7, "a@b.com", "delivered", "2026-08-03 10:00:00")
+
+    stats = db.list_campaign_stats()
+
+    assert len(stats) == 1
+    assert stats[0]["brevo_campaign_id"] == 7
+    assert stats[0]["events"] == {"delivered": 1}
+
+
+def test_last_event_per_email_returns_most_recent(db):
+    db.record_email_event(42, "a@b.com", "delivered", "2026-08-03 10:00:00")
+    db.record_email_event(42, "a@b.com", "opened", "2026-08-03 10:05:00")
+
+    result = db.last_event_per_email(["a@b.com"])
+    assert result["a@b.com"]["event"] == "opened"
+
+
+def test_last_event_per_email_empty_list_returns_empty_dict(db):
+    assert db.last_event_per_email([]) == {}
+
+
+# --- subscribers (busca + descadastro local) --------------------------------
+
+
+def test_list_subscribers_includes_unsubscribed(db):
+    db.upsert_subscriber(email="active@b.com", brevo_contact_id=1, status="active")
+    db.upsert_subscriber(email="gone@b.com", brevo_contact_id=2, status="unsubscribed")
+
+    emails = {row["email"] for row in db.list_subscribers()}
+    assert emails == {"active@b.com", "gone@b.com"}
+
+
+def test_list_subscribers_search_filters(db):
+    db.upsert_subscriber(email="findme@b.com", brevo_contact_id=1, status="active")
+    db.upsert_subscriber(email="other@b.com", brevo_contact_id=2, status="active")
+
+    results = db.list_subscribers(search="findme")
+    assert [row["email"] for row in results] == ["findme@b.com"]
+
+
+def test_mark_subscriber_unsubscribed(db):
+    db.upsert_subscriber(email="a@b.com", brevo_contact_id=1, status="active")
+    db.mark_subscriber_unsubscribed("a@b.com")
+
+    assert db.list_subscribers()[0]["status"] == "unsubscribed"

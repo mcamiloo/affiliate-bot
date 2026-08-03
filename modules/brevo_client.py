@@ -17,6 +17,7 @@ import httpx
 
 import config
 from utils.retry import with_retry
+from utils.unsubscribe import compute_unsub_token
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +67,14 @@ def create_doi_contact(
                 "includeListIds": [config.BREVO_LIST_ID],
                 "templateId": config.BREVO_DOI_TEMPLATE_ID,
                 "redirectionUrl": redirect_url or config.BREVO_DOI_REDIRECT_URL,
-                "attributes": {"CONSENT_TIMESTAMP": consent_timestamp},
+                "attributes": {
+                    "CONSENT_TIMESTAMP": consent_timestamp,
+                    # Mesmo HMAC que netlify/functions/subscribe.js calcula (o
+                    # cadastro de produção passa por lá, não por esta função —
+                    # ver utils/unsubscribe.py) — mantido aqui só pra quem
+                    # eventualmente cadastrar via este client Python direto.
+                    "UNSUB_TOKEN": compute_unsub_token(email),
+                },
             },
         )
         _raise_for_status(response)
@@ -150,3 +158,63 @@ def delete_campaign(campaign_id: int) -> None:
         if response.status_code == 404:
             return
         _raise_for_status(response)
+
+
+@with_retry(exceptions=(httpx.TransportError,))
+def send_test_email(campaign_id: int, emails: list[str]) -> None:
+    """Manda uma cópia de teste da campanha (ainda rascunho) só pros
+    endereços indicados — usado pelo botão "Mandar teste" do compose
+    manual, antes do rascunho entrar na fila de aprovação de verdade.
+    Limite do próprio Brevo: 50 testes/dia."""
+    with _client() as client:
+        response = client.post(
+            f"/emailCampaigns/{campaign_id}/sendTest",
+            json={"emailTo": emails},
+        )
+        _raise_for_status(response)
+
+
+@with_retry(exceptions=(httpx.TransportError,))
+def set_contact_attributes(email: str, attributes: dict[str, Any]) -> None:
+    """Atualiza atributos de um contato já existente — usado pelo
+    backfill do UNSUB_TOKEN (scripts/backfill_unsub_tokens.py) pra quem
+    assinou antes desse token existir."""
+    with _client() as client:
+        response = client.put(f"/contacts/{email}", json={"attributes": attributes})
+        if response.status_code == 404:
+            return
+        _raise_for_status(response)
+
+
+@with_retry(exceptions=(httpx.TransportError,))
+def unsubscribe_contact(email: str) -> None:
+    """Bloqueia o contato pra emails de marketing no Brevo (emailBlacklisted)
+    — chamado assim que alguém clica no link de descadastro próprio
+    (ver utils/unsubscribe.py), pra não esperar o próximo sync periódico."""
+    with _client() as client:
+        response = client.put(f"/contacts/{email}", json={"emailBlacklisted": True})
+        if response.status_code == 404:
+            return
+        _raise_for_status(response)
+
+
+@with_retry(exceptions=(httpx.TransportError,))
+def create_marketing_webhook(url: str, events: list[str], secret: str, description: str) -> int:
+    """Registra o webhook de eventos de campanha no Brevo, com o segredo
+    num header custom em vez de na URL — evita que ele apareça em log de
+    proxy/Tailscale (o Brevo não assina o payload, então essa é a única
+    forma de autenticação que não seja "qualquer um que souber a URL").
+    Chamado uma única vez por scripts/setup_brevo_webhook.py."""
+    with _client() as client:
+        response = client.post(
+            "/webhooks",
+            json={
+                "url": url,
+                "type": "marketing",
+                "events": events,
+                "description": description,
+                "headers": [{"key": "X-Brevo-Webhook-Secret", "value": secret}],
+            },
+        )
+        _raise_for_status(response)
+        return response.json()["id"]

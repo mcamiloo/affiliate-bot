@@ -37,6 +37,12 @@ def select_offers(db: DBManager) -> list[dict[str, Any]]:
 
 
 def render_html(offers: list[dict[str, Any]]) -> str:
+    if not config.APPROVAL_PANEL_PUBLIC_URL:
+        raise RuntimeError(
+            "APPROVAL_PANEL_PUBLIC_URL não definido no .env — necessário pro link de "
+            "descadastro próprio no rodapé do email (ver templates/newsletter_email.html.j2)."
+        )
+
     env = Environment(loader=FileSystemLoader(TEMPLATES_DIR), autoescape=True)
     template = env.get_template("newsletter_email.html.j2")
     return template.render(
@@ -49,6 +55,7 @@ def render_html(offers: list[dict[str, Any]]) -> str:
         address_city=config.NEWSLETTER_ADDRESS_CITY,
         address_postal_code=config.NEWSLETTER_ADDRESS_POSTAL_CODE,
         address_country=config.NEWSLETTER_ADDRESS_COUNTRY,
+        unsubscribe_base_url=config.APPROVAL_PANEL_PUBLIC_URL.rstrip("/"),
     )
 
 

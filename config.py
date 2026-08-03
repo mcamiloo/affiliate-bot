@@ -97,6 +97,26 @@ BREVO_DOI_TEMPLATE_ID = _env_int("BREVO_DOI_TEMPLATE_ID", 0) if os.getenv("BREVO
 BREVO_DOI_REDIRECT_URL = os.getenv("BREVO_DOI_REDIRECT_URL", "")
 BREVO_SENDER_NAME = os.getenv("BREVO_SENDER_NAME", "")
 BREVO_SENDER_EMAIL = os.getenv("BREVO_SENDER_EMAIL", "")
+# Segredo enviado pelo Brevo num header custom (X-Brevo-Webhook-Secret) em
+# toda chamada de webhook — ver scripts/setup_brevo_webhook.py, que registra
+# o webhook já com esse header configurado. Combinado com o allowlist de IP
+# do Brevo (ver approval_panel.py) porque o Brevo não assina o payload
+# (sem HMAC nativo) — dois fatores independentes no lugar de um só.
+BREVO_WEBHOOK_SECRET = os.getenv("BREVO_WEBHOOK_SECRET", "")
+# Chave do HMAC que vira o token de descadastro próprio (UNSUB_TOKEN,
+# atributo do contato no Brevo) — ver utils/unsubscribe.py. Mantido
+# JUNTO com o link nativo {{ unsubscribe }} do Brevo no rodapé do email,
+# não no lugar dele.
+NEWSLETTER_UNSUB_SECRET = os.getenv("NEWSLETTER_UNSUB_SECRET", "")
+# URL pública de onde o painel (scripts/approval_panel.py) é alcançável
+# hoje — usada só pra montar o link de descadastro próprio no email.
+# Enquanto o proxy da Netlify em /sistema não estiver no ar, isso é a
+# URL crua do Tailscale Funnel.
+APPROVAL_PANEL_PUBLIC_URL = os.getenv("APPROVAL_PANEL_PUBLIC_URL", "")
+# Pra onde o botão "Mandar teste" (painel, fila de aprovação) manda a
+# cópia de teste de uma campanha — cai no seu próprio email, não em
+# assinantes de verdade. Sem isso configurado, cai no remetente mesmo.
+NEWSLETTER_TEST_EMAIL = os.getenv("NEWSLETTER_TEST_EMAIL", "") or BREVO_SENDER_EMAIL
 
 # Endereço físico exigido por lei (PECR/CAN-SPAM) no rodapé do email —
 # sem isso o envio de email em massa não é compliant.

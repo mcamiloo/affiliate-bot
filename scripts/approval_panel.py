@@ -15,6 +15,7 @@ nunca agenda ou envia sozinho.
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import logging
 import re
@@ -37,6 +38,7 @@ from database.db_manager import DBManager
 from modules import brevo_client
 from scripts.health_check import job_is_loaded, last_successful_cycle
 from utils.headlines import pick_offer_headline
+from utils.unsubscribe import compute_unsub_token, verify_unsub_token
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -47,6 +49,11 @@ NEWSLETTER_LABEL = "com.miguelcamilo.affiliatebot.newsletter"
 RUN_CYCLE_SCRIPT = Path(__file__).resolve().parent / "run_cycle_now.py"
 _WHATSAPP_LOG_LINE_RE = re.compile(r"^(?P<ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),\d+ .+ no WhatsApp.*$")
 
+# Faixa de IP publicada pelo Brevo pra origem dos webhooks — segunda
+# camada de autenticação além do header secreto, já que o Brevo não
+# assina o payload (sem HMAC nativo). Ver _require_brevo_webhook_auth.
+_BREVO_WEBHOOK_IP_RANGE = ipaddress.ip_network("1.179.112.0/20")
+
 # Bootstrap: criado uma única vez (create_admin_user_if_absent não
 # sobrescreve se já existir admin) — força troca no primeiro login, então
 # a senha fraca só vale até o primeiro acesso de verdade.
@@ -56,8 +63,17 @@ DEFAULT_ADMIN_PASSWORD = "123456"
 # Rotas acessíveis sem sessão — tudo mais passa pelo guard em before_request.
 # As /api/* não usam cookie de sessão (widget do iPad via Scriptable não tem
 # como fazer login interativo) — se autenticam sozinhas via
-# _require_widget_token, então também entram aqui.
-_PUBLIC_ENDPOINTS = {"login", "api_widget_snapshot", "api_run_cycle_now"}
+# _require_widget_token, então também entram aqui. newsletter_unsubscribe é
+# clicada por qualquer assinante (não faz login) — se autentica pelo HMAC
+# na própria URL (ver verify_unsub_token). api_brevo_webhook é o Brevo
+# chamando de fora — se autentica por header secreto + allowlist de IP.
+_PUBLIC_ENDPOINTS = {
+    "login",
+    "api_widget_snapshot",
+    "api_run_cycle_now",
+    "newsletter_unsubscribe",
+    "api_brevo_webhook",
+}
 
 if not config.APPROVAL_PANEL_SECRET_KEY:
     raise RuntimeError(
@@ -69,6 +85,20 @@ if not config.WIDGET_API_TOKEN:
     raise RuntimeError(
         "WIDGET_API_TOKEN não definido no .env — gere com "
         "`python -c \"import secrets; print(secrets.token_hex(32))\"`."
+    )
+
+if not config.NEWSLETTER_UNSUB_SECRET:
+    raise RuntimeError(
+        "NEWSLETTER_UNSUB_SECRET não definido no .env — gere com "
+        "`python -c \"import secrets; print(secrets.token_hex(32))\"` "
+        "(a mesma chave também precisa estar nas env vars da Netlify)."
+    )
+
+if not config.BREVO_WEBHOOK_SECRET:
+    raise RuntimeError(
+        "BREVO_WEBHOOK_SECRET não definido no .env — gere com "
+        "`python -c \"import secrets; print(secrets.token_hex(32))\"` "
+        "e rode scripts/setup_brevo_webhook.py depois."
     )
 
 app = Flask(__name__, template_folder=str(config.BASE_DIR / "templates" / "panel"))
@@ -279,6 +309,74 @@ def api_run_cycle_now():
     return jsonify({"status": "started"})
 
 
+@app.route("/newsletter/unsubscribe")
+def newsletter_unsubscribe():
+    """Link de descadastro próprio — convive com o {{ unsubscribe }}
+    nativo do Brevo no rodapé do email, não o substitui (ver
+    templates/newsletter_email.html.j2). Marca localmente na hora (não
+    espera o próximo sync periódico a partir do Brevo) e também bloqueia
+    o contato no Brevo de fato, pra parar de receber campanhas futuras."""
+    email = (request.args.get("email") or "").strip().lower()
+    token = request.args.get("token") or ""
+
+    if not email or not verify_unsub_token(email, token):
+        return render_template("unsubscribed.html", ok=False), 403
+
+    with DBManager() as db:
+        db.mark_subscriber_unsubscribed(email)
+
+    try:
+        brevo_client.unsubscribe_contact(email)
+    except Exception:
+        logger.exception("Falha ao bloquear %s no Brevo (já marcado localmente)", email)
+
+    return render_template("unsubscribed.html", ok=True, email=email)
+
+
+def _require_brevo_webhook_auth() -> Optional[tuple[Any, int]]:
+    """Guard de /api/brevo-webhook — o Brevo não assina o payload (sem
+    HMAC nativo), então combina duas camadas independentes: um segredo
+    num header custom (configurado via scripts/setup_brevo_webhook.py,
+    nunca na URL — evita vazar em log de proxy/Tailscale) e o allowlist
+    do IP de origem que o próprio Brevo publica."""
+    provided_secret = request.headers.get("X-Brevo-Webhook-Secret", "")
+    if not secrets.compare_digest(provided_secret, config.BREVO_WEBHOOK_SECRET):
+        return jsonify({"error": "unauthorized"}), 401
+
+    try:
+        remote_ip = ipaddress.ip_address(request.remote_addr)
+    except ValueError:
+        return jsonify({"error": "unauthorized"}), 401
+    if remote_ip not in _BREVO_WEBHOOK_IP_RANGE:
+        logger.warning("Webhook do Brevo com header certo mas IP fora do allowlist: %s", request.remote_addr)
+        return jsonify({"error": "unauthorized"}), 401
+
+    return None
+
+
+@app.route("/api/brevo-webhook", methods=["POST"])
+def api_brevo_webhook():
+    """Recebe um evento de campanha por vez (o Brevo não manda em lote) —
+    ver scripts/setup_brevo_webhook.py pro registro do webhook e
+    database/db_manager.py (email_events) pro que é feito com isso."""
+    if (auth_error := _require_brevo_webhook_auth()) is not None:
+        return auth_error
+
+    payload = request.get_json(silent=True) or {}
+    email = payload.get("email")
+    event = payload.get("event")
+    campaign_id = payload.get("camp_id")
+    occurred_at = payload.get("date_event") or payload.get("date_sent")
+
+    if not email or not event or not occurred_at:
+        return jsonify({"error": "missing fields"}), 400
+
+    with DBManager() as db:
+        db.record_email_event(campaign_id, email, event, occurred_at)
+
+    return jsonify({"status": "recorded"})
+
+
 @app.route("/offers")
 def offers():
     with DBManager() as db:
@@ -293,12 +391,32 @@ def hide_offer(item_id: str):
     return redirect(url_for("offers"))
 
 
+@app.route("/subscribers")
+def subscribers():
+    search = (request.args.get("q") or "").strip()
+    with DBManager() as db:
+        rows = db.list_subscribers(search=search or None)
+        last_events = db.last_event_per_email([row["email"] for row in rows])
+    for row in rows:
+        row["last_event"] = last_events.get(row["email"])
+    return render_template("subscribers.html", subscribers=rows, search=search)
+
+
+@app.route("/newsletter/stats")
+def newsletter_stats():
+    with DBManager() as db:
+        campaigns = db.list_campaign_stats()
+    return render_template("stats.html", campaigns=campaigns)
+
+
 @app.route("/queue")
 def queue():
     with DBManager() as db:
         drafts = db.list_pending_drafts()
     for draft in drafts:
-        draft["offer_ids"] = json.loads(draft["offer_ids"])
+        # offer_ids é None nos rascunhos avulsos (compose manual) — não
+        # vêm de uma seleção automática de ofertas.
+        draft["offer_ids"] = json.loads(draft["offer_ids"]) if draft["offer_ids"] else []
     return render_template("queue.html", drafts=drafts)
 
 
@@ -318,18 +436,20 @@ def approve_draft(draft_id: int):
         if draft is None:
             return "Rascunho não encontrado.", 404
 
-        target_time = datetime.fromisoformat(draft["target_time_utc"])
+        # Rascunho avulso (compose manual) não tem target_time_utc — não
+        # existe "horário sorteado" pra ele, aprovar já manda na hora.
+        target_time = datetime.fromisoformat(draft["target_time_utc"]) if draft["target_time_utc"] else None
         now = datetime.now(timezone.utc)
 
         try:
-            if now < target_time:
+            if target_time is not None and now < target_time:
                 brevo_client.schedule_campaign(draft["brevo_campaign_id"], draft["target_time_utc"])
                 db.update_draft_status(draft_id, "approved")
                 logger.info("Draft %d agendado no Brevo para %s", draft_id, draft["target_time_utc"])
             else:
                 brevo_client.send_campaign_now(draft["brevo_campaign_id"])
                 db.update_draft_status(draft_id, "sent")
-                logger.info("Draft %d aprovado após o horário-alvo — enviado imediatamente", draft_id)
+                logger.info("Draft %d aprovado — enviado imediatamente", draft_id)
         except Exception:
             logger.exception("Falha ao aprovar draft %d no Brevo", draft_id)
             return "Falha ao falar com o Brevo — veja os logs.", 502
@@ -351,6 +471,69 @@ def reject_draft(draft_id: int):
 
         db.update_draft_status(draft_id, "rejected")
 
+    return redirect(url_for("queue"))
+
+
+@app.route("/queue/<int:draft_id>/test", methods=["POST"])
+def send_test_draft(draft_id: int):
+    """Manda uma cópia de teste (Brevo sendTest) só pra NEWSLETTER_TEST_EMAIL
+    — funciona tanto pro rascunho automático diário quanto pro avulso
+    (compose manual), os dois têm brevo_campaign_id assim que existem."""
+    with DBManager() as db:
+        draft = db.get_email_draft(draft_id)
+    if draft is None:
+        return "Rascunho não encontrado.", 404
+    if not draft["brevo_campaign_id"]:
+        return "Este rascunho ainda não tem campanha no Brevo.", 400
+
+    try:
+        brevo_client.send_test_email(draft["brevo_campaign_id"], [config.NEWSLETTER_TEST_EMAIL])
+        flash(f"Teste enviado para {config.NEWSLETTER_TEST_EMAIL}.")
+    except Exception:
+        logger.exception("Falha ao mandar teste do draft %d", draft_id)
+        flash("Falha ao mandar o teste — veja os logs.")
+
+    return redirect(url_for("queue"))
+
+
+@app.route("/newsletter/compose", methods=["GET", "POST"])
+def compose_email():
+    """Compose manual — upload/cola um HTML pronto, cria como rascunho no
+    Brevo e entra na mesma fila de aprovação dos automáticos (com o botão
+    de teste disponível antes de aprovar de verdade)."""
+    if request.method == "GET":
+        return render_template("compose.html", error=None, subject="", html_content="")
+
+    subject = (request.form.get("subject") or "").strip()
+    html_content = request.form.get("html_content") or ""
+
+    uploaded_file = request.files.get("html_file")
+    if uploaded_file is not None and uploaded_file.filename:
+        html_content = uploaded_file.read().decode("utf-8", errors="replace")
+
+    if not subject or not html_content.strip():
+        return render_template(
+            "compose.html",
+            error="Preencha o assunto e o conteúdo HTML (ou envie um arquivo).",
+            subject=subject,
+            html_content=html_content,
+        ), 400
+
+    try:
+        campaign_id = brevo_client.create_campaign_draft(subject, html_content)
+    except Exception:
+        logger.exception("Falha ao criar campanha rascunho no Brevo (compose manual)")
+        return render_template(
+            "compose.html",
+            error="Falha ao falar com o Brevo — veja os logs.",
+            subject=subject,
+            html_content=html_content,
+        ), 502
+
+    with DBManager() as db:
+        db.create_adhoc_email_draft(subject, html_content, campaign_id)
+
+    flash("Rascunho criado — dá pra mandar um teste antes de aprovar, na fila de aprovação.")
     return redirect(url_for("queue"))
 
 

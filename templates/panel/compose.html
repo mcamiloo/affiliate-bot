@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Novo email avulso</h1>
+<p class="muted">Cole o HTML pronto (ou envie um arquivo .html) — vira um rascunho na fila de aprovação, com opção de mandar um teste antes de aprovar de verdade.</p>
+
+{% if error %}<div class="flash" style="border-color: var(--danger);">{{ error }}</div>{% endif %}
+
+<form method="post" enctype="multipart/form-data" class="card">
+  <label class="muted" for="subject">Assunto</label><br>
+  <input type="text" id="subject" name="subject" value="{{ subject }}" required
+         style="width: 100%; font: inherit; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem; margin: 0.3rem 0 0.8rem;">
+
+  <label class="muted" for="html_file">Arquivo .html pronto (opcional — substitui o texto colado abaixo)</label><br>
+  <input type="file" id="html_file" name="html_file" accept=".html,.htm" style="margin: 0.3rem 0 0.8rem;">
+
+  <label class="muted" for="html_content">Ou cole o HTML aqui</label><br>
+  <textarea id="html_content" name="html_content" rows="10"
+            style="width: 100%; font: monospace; font-size: 0.8rem; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem; margin: 0.3rem 0 0.8rem;"
+            oninput="document.getElementById('preview').srcdoc = this.value;">{{ html_content }}</textarea>
+
+  <button type="submit" class="btn-approve">Criar rascunho</button>
+</form>
+
+<div class="card">
+  <p class="muted" style="margin-top:0;">Pré-visualização (atualiza ao digitar acima — arquivo enviado não aparece aqui até você criar o rascunho)</p>
+  <iframe id="preview" srcdoc="{{ html_content }}"></iframe>
+</div>
+{% endblock %}

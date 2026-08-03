@@ -87,6 +87,9 @@
       <a href="/queue" class="{{ 'active' if request.path.startswith('/queue') else '' }}">Fila de aprovação</a>
       <a href="/offers" class="{{ 'active' if request.path.startswith('/offers') else '' }}">Ofertas publicadas</a>
       <a href="/schedule" class="{{ 'active' if request.path.startswith('/schedule') else '' }}">Horários agendados</a>
+      <a href="/newsletter/compose" class="{{ 'active' if request.path.startswith('/newsletter/compose') else '' }}">Novo email</a>
+      <a href="/subscribers" class="{{ 'active' if request.path.startswith('/subscribers') else '' }}">Assinantes</a>
+      <a href="/newsletter/stats" class="{{ 'active' if request.path.startswith('/newsletter/stats') else '' }}">Estatísticas</a>
     </nav>
     <form method="post" action="{{ url_for('logout') }}">
       <button type="submit" class="btn-logout">Sair</button>

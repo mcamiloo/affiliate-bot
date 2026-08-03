@@ -67,6 +67,11 @@
             {{ sender_name }} · {{ address_line1 }}, {{ address_city }}, {{ address_postal_code }}, {{ address_country }}<br>
             You're receiving this because you subscribed at our site and confirmed your email.
             <a href="{% raw %}{{ unsubscribe }}{% endraw %}" style="color:#5c6270;">Unsubscribe</a>
+            ·
+            {#- Link próprio (HMAC via UNSUB_TOKEN, ver utils/unsubscribe.py) além do
+                {{ unsubscribe }} nativo do Brevo acima — os dois convivem de propósito,
+                não é redundância à toa (ver project memory / decisão do usuário). #}
+            <a href="{{ unsubscribe_base_url }}/newsletter/unsubscribe?email={% raw %}{{contact.EMAIL}}{% endraw %}&amp;token={% raw %}{{contact.UNSUB_TOKEN}}{% endraw %}" style="color:#5c6270;">Unsubscribe (alt.)</a>
           </td>
         </tr>
 
