@@ -348,3 +348,42 @@ def test_has_draft_for_scheduled_send(db):
     assert db.has_draft_for_scheduled_send(sid) is False
     db.create_email_draft(sid, "<html></html>", ["1"], brevo_campaign_id=42)
     assert db.has_draft_for_scheduled_send(sid) is True
+
+
+# --- offers do painel (Home / Ofertas publicadas) --------------------------
+
+
+def test_count_offers_since_counts_only_recent(db):
+    db.save_offer(**_sample_offer(item_id="RECENT"))
+    db.save_offer(**_sample_offer(item_id="OLD"))
+    db._conn.execute(
+        "UPDATE posted_offers SET posted_at = datetime('now', '-72 hours') WHERE item_id = 'OLD';"
+    )
+    db._conn.commit()
+
+    assert db.count_offers_since(24) == 1
+    assert db.count_offers_since(24 * 7) == 2
+
+
+def test_list_recent_offers_orders_newest_first_and_includes_hidden(db):
+    db.save_offer(**_sample_offer(item_id="OLDER"))
+    db.save_offer(**_sample_offer(item_id="NEWER"))
+    db._conn.execute(
+        "UPDATE posted_offers SET posted_at = datetime('now', '-1 hour') WHERE item_id = 'OLDER';"
+    )
+    db._conn.commit()
+    db.hide_offer("OLDER")
+
+    rows = db.list_recent_offers()
+    assert [row["item_id"] for row in rows] == ["NEWER", "OLDER"]
+    assert next(row for row in rows if row["item_id"] == "OLDER")["hidden"] == 1
+    assert next(row for row in rows if row["item_id"] == "NEWER")["hidden"] == 0
+
+
+def test_hide_offer_removes_it_from_score_view_but_keeps_dedupe(db):
+    db.save_offer(**_sample_offer(item_id="BAD1"))
+    db.hide_offer("BAD1")
+
+    assert db.list_offers_by_score(limit=10) == []
+    assert db.is_duplicate("BAD1") is True
+    assert db.get_offer("BAD1") is not None

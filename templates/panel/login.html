@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Login — Painel de Aprovação</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #0b0d12; --surface: #151822; --text: #eef0f4; --text-muted: #9aa1b2;
+    --accent: #ff5f6d; --border: #262b3a; --danger: #ff5f6d;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #f5f6f8; --surface: #ffffff; --text: #14161c; --text-muted: #5c6270; --border: #e4e6eb; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    font-family: -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); padding: 1.5rem;
+  }
+  .card { width: 100%; max-width: 340px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.75rem; }
+  h1 { font-size: 1.1rem; margin: 0 0 1.25rem; text-align: center; }
+  label { display: block; font-size: 0.82rem; color: var(--text-muted); margin: 0 0 0.3rem; }
+  input[type=text], input[type=password] {
+    width: 100%; font: inherit; background: var(--bg); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 0.55rem 0.7rem; margin-bottom: 1rem;
+  }
+  button { width: 100%; font: inherit; cursor: pointer; border: none; border-radius: 6px; padding: 0.65rem; font-weight: 700; background: var(--accent); color: #fff; }
+  .error { color: var(--danger); font-size: 0.82rem; margin: -0.5rem 0 1rem; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Painel de Aprovação</h1>
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  <form method="post">
+    <label for="username">Usuário</label>
+    <input type="text" id="username" name="username" autocomplete="username" required autofocus>
+    <label for="password">Senha</label>
+    <input type="password" id="password" name="password" autocomplete="current-password" required>
+    <button type="submit">Entrar</button>
+  </form>
+</div>
+</body>
+</html>

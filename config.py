@@ -109,8 +109,13 @@ NEWSLETTER_SCHEDULER_POLL_SECONDS = _env_int("NEWSLETTER_SCHEDULER_POLL_SECONDS"
 NEWSLETTER_SUBSCRIBER_SYNC_EVERY_N_POLLS = _env_int("NEWSLETTER_SUBSCRIBER_SYNC_EVERY_N_POLLS", 12)
 NEWSLETTER_LOG_FILE = LOGS_DIR / "newsletter_scheduler.log"
 
-# Painel de aprovação local — bind exclusivo em 127.0.0.1, nunca exposto.
+# Painel de aprovação — bind exclusivo em 127.0.0.1; alcançável de fora só
+# via Tailscale Funnel + proxy da Netlify em /sistema (nunca exposto direto
+# na rede). Login obrigatório (ver admin_users em database/db_manager.py).
 APPROVAL_PANEL_PORT = _env_int("APPROVAL_PANEL_PORT", 8765)
+# Assina a sessão de login do painel — precisa ser estável entre reinícios
+# do processo (senão todo mundo é deslogado a cada restart do launchd).
+APPROVAL_PANEL_SECRET_KEY = os.getenv("APPROVAL_PANEL_SECRET_KEY", "")
 
 # --- Regras de negócio ---------------------------------------------------
 MIN_DISCOUNT_PERCENT = _env_int("MIN_DISCOUNT_PERCENT", 30)
@@ -189,6 +194,40 @@ KEYWORD_TO_GROUP: dict[str, str] = {
     keyword.lower(): group
     for group, keywords in NICHE_KEYWORD_GROUPS.items()
     for keyword in keywords
+}
+
+# Ganchos (headline em caps, tom brincalhão, inglês britânico) por
+# categoria — usados no início da mensagem do Telegram e no card do
+# painel. Escolhido por categoria, não por produto individual: não temos
+# IA escrevendo texto por oferta, então evitamos afirmar qualquer coisa
+# específica sobre o item (risco de inventar algo errado sobre um produto
+# que só conhecemos pela API) — a piada é sobre o *tipo* de produto.
+OFFER_HEADLINES: dict[str, list[str]] = {
+    "setup_gamer": [
+        "STOP BLAMING YOUR MOUSE FOR THAT LOSS",
+        "NO MORE \"IT WAS LAG, I SWEAR\"",
+        "YOUR K/D RATIO WILL THANK YOU",
+    ],
+    "consoles": [
+        "STILL ON THE RESTOCK WAITING LIST?",
+        "SOFA GAMING JUST LEVELLED UP",
+    ],
+    "smart_home": [
+        "STOP SHOUTING AT LIGHTS THAT DON'T LISTEN",
+        "YOUR HOUSE JUST GOT SMARTER THAN YOU",
+    ],
+    "audio_wearables": [
+        "STOP LOSING ONE EARBUD ON THE TUBE",
+        "COMMUTE UPGRADE UNLOCKED",
+    ],
+    "criadores_de_conteudo": [
+        "STOP GOING VIRAL FOR THE WRONG REASONS (POTATO CAM)",
+        'NO MORE "CAN YOU HEAR ME?" EVERY 5 MINUTES',
+    ],
+    "default": [
+        "BARGAIN ALERT",
+        "TOO GOOD TO SCROLL PAST",
+    ],
 }
 
 # --- Score de ofertas (priorização pra tráfego pago) ----------------------

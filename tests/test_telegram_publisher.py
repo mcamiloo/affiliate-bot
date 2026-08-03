@@ -12,6 +12,8 @@ def test_format_offer_message_contains_expected_fields():
         discounted_price=99.9,
         discount_percent=50,
         link="https://example.com/product",
+        category="setup_gamer",
+        item_id="ITEM1",
     )
     assert "Gaming Mouse RGB" in msg
     assert "£199.90" in msg
@@ -20,6 +22,46 @@ def test_format_offer_message_contains_expected_fields():
     assert "Was:" in msg
     assert "Now:" in msg
     assert 'href="https://example.com/product"' in msg
+
+
+def test_format_offer_message_includes_category_headline():
+    msg = tp.format_offer_message(
+        title="Gaming Mouse RGB",
+        original_price=199.9,
+        discounted_price=99.9,
+        discount_percent=50,
+        link="https://example.com/product",
+        category="setup_gamer",
+        item_id="ITEM1",
+    )
+    assert any(headline in msg for headline in config.OFFER_HEADLINES["setup_gamer"])
+
+
+def test_format_offer_message_falls_back_to_default_headline_for_unknown_category():
+    msg = tp.format_offer_message(
+        title="Mystery Gadget",
+        original_price=10,
+        discounted_price=5,
+        discount_percent=50,
+        link="https://example.com/product",
+        category=None,
+        item_id="ITEM2",
+    )
+    assert any(headline in msg for headline in config.OFFER_HEADLINES["default"])
+
+
+def test_format_offer_message_same_item_id_always_picks_same_headline():
+    first = tp.format_offer_message(
+        title="A", original_price=10, discounted_price=5, discount_percent=50,
+        link="https://example.com", category="consoles", item_id="STABLE",
+    )
+    second = tp.format_offer_message(
+        title="B", original_price=20, discounted_price=15, discount_percent=25,
+        link="https://example.com", category="consoles", item_id="STABLE",
+    )
+    picked_first = next(h for h in config.OFFER_HEADLINES["consoles"] if h in first)
+    picked_second = next(h for h in config.OFFER_HEADLINES["consoles"] if h in second)
+    assert picked_first == picked_second
 
 
 def test_format_offer_message_escapes_html_special_chars():

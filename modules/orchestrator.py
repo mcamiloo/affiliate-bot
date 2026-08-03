@@ -57,6 +57,8 @@ def process_keyword(keyword: str, db: DBManager) -> int:
                 discounted_price=offer.sale_price,
                 discount_percent=offer.discount_percent,
                 link=offer.affiliate_url,
+                category=category,
+                item_id=offer.item_id,
             )
         except Exception:
             logger.exception(

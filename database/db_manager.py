@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS posted_offers (
     discount_percent  REAL,
     category          TEXT,
     image_url         TEXT,
+    hidden            INTEGER NOT NULL DEFAULT 0,
     posted_at         TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -73,12 +74,25 @@ CREATE TABLE IF NOT EXISTS email_drafts (
 );
 
 CREATE INDEX IF NOT EXISTS idx_email_drafts_status ON email_drafts (status);
+
+-- Login do painel de aprovação (scripts/approval_panel.py). Um único
+-- usuário — este não é um sistema multi-usuário, só a forma de exigir
+-- login em vez de deixar o painel aberto pra quem quer que alcance a
+-- URL pública (Tailscale Funnel + proxy da Netlify em /sistema).
+CREATE TABLE IF NOT EXISTS admin_users (
+    id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+    username              TEXT NOT NULL UNIQUE,
+    password_hash         TEXT NOT NULL,
+    must_change_password  INTEGER NOT NULL DEFAULT 1,
+    updated_at            TEXT NOT NULL DEFAULT (datetime('now'))
+);
 """
 
 # CREATE TABLE IF NOT EXISTS não adiciona colunas a uma tabela já existente
 # (bancos criados antes do campo image_url) — migração idempotente à parte.
 _MIGRATIONS: list[str] = [
     "ALTER TABLE posted_offers ADD COLUMN image_url TEXT;",
+    "ALTER TABLE posted_offers ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0;",
 ]
 
 
@@ -151,7 +165,8 @@ def _score_view_sql() -> str:
                 END
             ) * {weights['category']}
         , 1) AS score
-    FROM posted_offers;
+    FROM posted_offers
+    WHERE hidden = 0;
     """
 
 
@@ -240,6 +255,30 @@ class DBManager:
         )
         row = cursor.fetchone()
         return dict(row) if row is not None else None
+
+    def list_recent_offers(self, limit: int = 100) -> list[dict[str, Any]]:
+        """Ofertas publicadas mais recentes primeiro, incluindo as ocultas —
+        usado pelo painel (a landing page/newsletter usam list_offers_by_score,
+        que já filtra hidden)."""
+        cursor = self._conn.execute(
+            "SELECT * FROM posted_offers ORDER BY posted_at DESC LIMIT ?;", (limit,)
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+    def hide_offer(self, item_id: str) -> None:
+        """Some da landing page/newsletter (via offer_scores) sem apagar a
+        linha — mantém o dedupe (is_duplicate) reconhecendo o item_id."""
+        with self._conn:
+            self._conn.execute(
+                "UPDATE posted_offers SET hidden = 1 WHERE item_id = ?;", (item_id,)
+            )
+
+    def count_offers_since(self, hours: int) -> int:
+        cursor = self._conn.execute(
+            "SELECT COUNT(*) FROM posted_offers WHERE posted_at >= datetime('now', ?);",
+            (f"-{hours} hours",),
+        )
+        return cursor.fetchone()[0]
 
     def count_offers(self) -> int:
         cursor = self._conn.execute("SELECT COUNT(*) FROM posted_offers;")
@@ -445,6 +484,35 @@ class DBManager:
             self._conn.execute(
                 "UPDATE email_drafts SET status = ?, decided_at = datetime('now') WHERE id = ?;",
                 (status, draft_id),
+            )
+
+    # --- admin_users (login do painel) --------------------------------
+
+    def get_admin_user(self, username: str) -> Optional[dict[str, Any]]:
+        cursor = self._conn.execute(
+            "SELECT * FROM admin_users WHERE username = ?;", (username,)
+        )
+        row = cursor.fetchone()
+        return dict(row) if row is not None else None
+
+    def create_admin_user_if_absent(
+        self, username: str, password_hash: str, must_change_password: bool = True
+    ) -> None:
+        """Não faz nada se já existir algum admin — seed único de bootstrap,
+        pra não sobrescrever uma senha já trocada em execuções seguintes."""
+        with self._conn:
+            self._conn.execute(
+                "INSERT OR IGNORE INTO admin_users (username, password_hash, must_change_password) "
+                "VALUES (?, ?, ?);",
+                (username, password_hash, int(must_change_password)),
+            )
+
+    def update_admin_password(self, user_id: int, password_hash: str) -> None:
+        with self._conn:
+            self._conn.execute(
+                "UPDATE admin_users SET password_hash = ?, must_change_password = 0, "
+                "updated_at = datetime('now') WHERE id = ?;",
+                (password_hash, user_id),
             )
 
     def close(self) -> None:

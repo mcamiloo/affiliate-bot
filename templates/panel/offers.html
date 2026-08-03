@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Ofertas publicadas</h1>
+
+{% if not offers %}
+<p class="muted">Nenhuma oferta publicada ainda.</p>
+{% endif %}
+
+<table>
+  <thead>
+    <tr><th>Publicada em</th><th>Título</th><th>Preço</th><th>Desconto</th><th>Categoria</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for offer in offers %}
+    <tr>
+      <td>{{ offer.posted_at }}</td>
+      <td><a href="{{ offer.affiliate_url }}" target="_blank" rel="noopener">{{ offer.title }}</a></td>
+      <td>£{{ "%.2f"|format(offer.price) }}</td>
+      <td>{{ offer.discount_percent | int if offer.discount_percent else '—' }}%</td>
+      <td>{{ offer.category or '—' }}</td>
+      <td>
+        {% if offer.hidden %}
+        <span class="status-pill">Oculta</span>
+        {% else %}
+        <form class="inline" method="post" action="{{ url_for('hide_offer', item_id=offer.item_id) }}"
+              onsubmit="return confirm('Ocultar esta oferta? Ela some da landing page e de futuras newsletters, mas continua contando pro dedupe (não será republicada).');">
+          <button type="submit" class="btn-delete">Ocultar</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

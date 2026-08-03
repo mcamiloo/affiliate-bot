@@ -15,10 +15,21 @@
   }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
-  nav { display: flex; gap: 1.2rem; padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); }
-  nav a { color: var(--text-muted); text-decoration: none; font-size: 0.9rem; font-weight: 600; }
-  nav a.active { color: var(--text); }
-  main { max-width: 900px; margin: 0 auto; padding: 1.5rem; }
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar {
+    width: 220px; flex-shrink: 0; display: flex; flex-direction: column;
+    padding: 1.5rem 1rem; border-right: 1px solid var(--border);
+  }
+  .sidebar .brand { font-weight: 800; font-size: 1rem; padding: 0 0.7rem; margin-bottom: 1.5rem; }
+  .sidebar nav { display: flex; flex-direction: column; gap: 0.2rem; flex: 1; }
+  .sidebar nav a {
+    color: var(--text-muted); text-decoration: none; font-size: 0.9rem; font-weight: 600;
+    padding: 0.55rem 0.7rem; border-radius: 8px;
+  }
+  .sidebar nav a.active { color: var(--text); background: var(--surface); }
+  .sidebar button.btn-logout { background: none; color: var(--text-muted); font-size: 0.85rem; padding: 0.55rem 0.7rem; text-align: left; width: 100%; }
+  main { flex: 1; min-width: 0; padding: 1.5rem; }
+  main > .page { max-width: 900px; margin: 0 auto; }
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.2rem; margin-bottom: 1rem; }
   button, .btn { font: inherit; cursor: pointer; border: none; border-radius: 6px; padding: 0.5rem 0.9rem; font-weight: 600; font-size: 0.85rem; }
   .btn-approve { background: var(--ok); color: #06210f; }
@@ -31,15 +42,66 @@
   th, td { text-align: left; padding: 0.5rem 0.4rem; border-bottom: 1px solid var(--border); font-size: 0.88rem; }
   form.inline { display: inline; }
   .status-pill { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.75rem; font-weight: 700; background: var(--border); }
+  .status-pill.ok { background: var(--ok); color: #06210f; }
+  .status-pill.bad { background: var(--danger); color: #2b0505; }
+  .flash { background: var(--surface); border: 1px solid var(--ok); color: var(--text); padding: 0.6rem 0.9rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.88rem; }
+  .stat-row { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 0.9rem 1.1rem; flex: 1; min-width: 130px; }
+  .stat .value { font-size: 1.6rem; font-weight: 800; }
+  .stat .label { font-size: 0.78rem; color: var(--text-muted); }
+
+  .tg-chat { display: flex; flex-direction: column; gap: 0.7rem; }
+  .tg-bubble {
+    display: flex; gap: 0.7rem; align-self: flex-end; max-width: 420px;
+    background: #dcf8c6; color: #14161c; border-radius: 12px 12px 2px 12px;
+    padding: 0.6rem 0.7rem; box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+  }
+  @media (prefers-color-scheme: dark) {
+    .tg-bubble { background: #2b5278; color: #e9f2ff; }
+  }
+  .tg-bubble img { width: 56px; height: 56px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
+  .tg-bubble .tg-thumb-placeholder { width: 56px; height: 56px; border-radius: 8px; background: rgba(0,0,0,0.1); flex-shrink: 0; }
+  .tg-bubble .tg-text { font-size: 0.85rem; line-height: 1.5; }
+  .tg-bubble .tg-headline { font-weight: 800; letter-spacing: 0.02em; }
+  .tg-bubble .tg-title { font-weight: 700; }
+  .tg-bubble .tg-was { opacity: 0.7; text-decoration: line-through; }
+  .tg-bubble .tg-now { font-weight: 700; }
+  .tg-bubble a { color: inherit; font-weight: 700; }
+
+  @media (max-width: 640px) {
+    .layout { flex-direction: column; }
+    .sidebar { width: 100%; flex-direction: row; align-items: center; border-right: none; border-bottom: 1px solid var(--border); padding: 0.7rem 1rem; overflow-x: auto; }
+    .sidebar .brand { margin-bottom: 0; margin-right: 0.5rem; white-space: nowrap; }
+    .sidebar nav { flex-direction: row; flex: none; }
+    .sidebar nav a { white-space: nowrap; }
+    .sidebar button.btn-logout { width: auto; white-space: nowrap; }
+  }
 </style>
 </head>
 <body>
-<nav>
-  <a href="/queue" class="{{ 'active' if request.path.startswith('/queue') else '' }}">Fila de aprovação</a>
-  <a href="/schedule" class="{{ 'active' if request.path.startswith('/schedule') else '' }}">Horários agendados</a>
-</nav>
-<main>
-{% block content %}{% endblock %}
-</main>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand">OmbroTechFinds</div>
+    <nav>
+      <a href="/home" class="{{ 'active' if request.path.startswith('/home') else '' }}">Início</a>
+      <a href="/queue" class="{{ 'active' if request.path.startswith('/queue') else '' }}">Fila de aprovação</a>
+      <a href="/offers" class="{{ 'active' if request.path.startswith('/offers') else '' }}">Ofertas publicadas</a>
+      <a href="/schedule" class="{{ 'active' if request.path.startswith('/schedule') else '' }}">Horários agendados</a>
+    </nav>
+    <form method="post" action="{{ url_for('logout') }}">
+      <button type="submit" class="btn-logout">Sair</button>
+    </form>
+  </aside>
+  <main>
+    <div class="page">
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          {% for message in messages %}<div class="flash">{{ message }}</div>{% endfor %}
+        {% endif %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+</div>
 </body>
 </html>

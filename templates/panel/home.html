@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Início</h1>
+
+<div class="card">
+  <p><strong>Últimas ofertas publicadas</strong></p>
+  {% if not latest_offers %}
+  <p class="muted">Nenhuma oferta publicada ainda.</p>
+  {% else %}
+  <div class="tg-chat">
+    {% for offer in latest_offers %}
+    <div class="tg-bubble">
+      {% if offer.image_url %}
+      <img src="{{ offer.image_url }}" alt="">
+      {% else %}
+      <div class="tg-thumb-placeholder"></div>
+      {% endif %}
+      <div class="tg-text">
+        🚨 <span class="tg-headline">{{ offer.headline }}</span><br><br>
+        <span class="tg-title">{{ offer.title }}</span><br>
+        {% if offer.original_price %}Was: <span class="tg-was">£{{ "%.2f"|format(offer.original_price) }}</span><br>{% endif %}
+        Now: <span class="tg-now">£{{ "%.2f"|format(offer.price) }}</span> 👑<br>
+        {% if offer.discount_percent %}💥 <strong>{{ offer.discount_percent | int }}% OFF</strong><br>{% endif %}
+        🔗 <a href="{{ offer.affiliate_url }}" target="_blank" rel="noopener">Grab the deal</a>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  <p class="muted" style="margin-top:0.7rem;"><a href="{{ url_for('offers') }}">Ver todas as ofertas publicadas →</a></p>
+  {% endif %}
+</div>
+
+<div class="stat-row">
+  <div class="stat">
+    <div class="value">{{ offers_today }}</div>
+    <div class="label">Ofertas publicadas hoje</div>
+  </div>
+  <div class="stat">
+    <div class="value">{{ offers_week }}</div>
+    <div class="label">Ofertas publicadas essa semana</div>
+  </div>
+  <div class="stat">
+    <div class="value">{{ pending_drafts }}</div>
+    <div class="label">Rascunhos de newsletter pendentes</div>
+  </div>
+  <div class="stat">
+    <div class="value">{{ to_uk_local(next_send.target_time_utc).strftime('%d/%m %H:%M') if next_send else '—' }}</div>
+    <div class="label">Próximo envio agendado (UK)</div>
+  </div>
+</div>
+
+<div class="card">
+  <p>
+    <strong>Bot principal</strong>
+    {% if main_bot.running %}<span class="status-pill ok">rodando</span>{% else %}<span class="status-pill bad">parado</span>{% endif %}
+  </p>
+  {% if main_bot.last_cycle %}
+  <p class="muted">
+    Último ciclo em {{ main_bot.last_cycle[0].strftime('%d/%m %H:%M') }} — {{ main_bot.last_cycle[1] }} oferta(s) publicada(s).
+  </p>
+  {% else %}
+  <p class="muted">Nenhum ciclo completo encontrado no log ainda.</p>
+  {% endif %}
+  <form method="post" action="{{ url_for('run_cycle_now') }}">
+    <button type="submit" class="btn-secondary">▶ Rodar ciclo agora</button>
+  </form>
+</div>
+
+<div class="card">
+  <p>
+    <strong>Agendador de newsletter</strong>
+    {% if newsletter.running %}<span class="status-pill ok">rodando</span>{% else %}<span class="status-pill bad">parado</span>{% endif %}
+  </p>
+</div>
+
+<div class="card">
+  <p>
+    <strong>WhatsApp</strong>
+    {% if not whatsapp.enabled %}
+    <span class="status-pill">desligado (WHATSAPP_ENABLED=false)</span>
+    {% elif whatsapp.app_running %}
+    <span class="status-pill ok">ligado — app aberto</span>
+    {% else %}
+    <span class="status-pill bad">ligado — app do WhatsApp Desktop não está aberto</span>
+    {% endif %}
+  </p>
+  {% if whatsapp.last_attempt %}
+  <p class="muted">
+    Última tentativa em {{ whatsapp.last_attempt.timestamp.strftime('%d/%m %H:%M') }} —
+    {% if whatsapp.last_attempt.success %}sucesso{% else %}falhou{% endif %}.
+  </p>
+  {% else %}
+  <p class="muted">Nenhuma tentativa de publicação no WhatsApp registrada ainda.</p>
+  {% endif %}
+</div>
+{% endblock %}
