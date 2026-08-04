@@ -112,6 +112,7 @@ CREATE INDEX IF NOT EXISTS idx_email_events_email ON email_events (email);
 _MIGRATIONS: list[str] = [
     "ALTER TABLE posted_offers ADD COLUMN image_url TEXT;",
     "ALTER TABLE posted_offers ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0;",
+    "ALTER TABLE posted_offers ADD COLUMN headline TEXT;",
 ]
 
 
@@ -283,11 +284,18 @@ class DBManager:
         discount_percent: Optional[float] = None,
         category: Optional[str] = None,
         image_url: Optional[str] = None,
+        headline: Optional[str] = None,
     ) -> bool:
         """Persiste uma oferta publicada.
 
         Retorna True se a oferta foi inserida, False se já existia
         (item_id duplicado) — nesse caso nada é sobrescrito.
+
+        headline é gravado (não recalculado depois) porque sua escolha em
+        orchestrator.py já leva em conta o último gancho usado na mesma
+        categoria (ver get_last_headline) — recalcular em outro momento
+        veria uma ordem/vizinhança diferente e poderia divergir do texto
+        que já saiu no Telegram pra essa oferta.
         """
         try:
             with self._conn:
@@ -295,8 +303,8 @@ class DBManager:
                     """
                     INSERT INTO posted_offers (
                         item_id, title, url, affiliate_url,
-                        price, original_price, discount_percent, category, image_url
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+                        price, original_price, discount_percent, category, image_url, headline
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
                     """,
                     (
                         item_id,
@@ -308,11 +316,28 @@ class DBManager:
                         discount_percent,
                         category,
                         image_url,
+                        headline,
                     ),
                 )
             return True
         except sqlite3.IntegrityError:
             return False
+
+    def get_last_headline(self, category: Optional[str]) -> Optional[str]:
+        """Gancho da oferta mais recente publicada na mesma categoria (ou
+        None se ainda não houve nenhuma, ou se ela não tinha headline
+        gravado). Usado pra evitar repetir o mesmo gancho duas vezes
+        seguidas — ver utils/headlines.pick_offer_headline(avoid=...)."""
+        cursor = self._conn.execute(
+            """
+            SELECT headline FROM posted_offers
+            WHERE category IS ? AND headline IS NOT NULL
+            ORDER BY posted_at DESC, id DESC LIMIT 1;
+            """,
+            (category,),
+        )
+        row = cursor.fetchone()
+        return row["headline"] if row is not None else None
 
     def get_offer(self, item_id: str) -> Optional[dict[str, Any]]:
         cursor = self._conn.execute(

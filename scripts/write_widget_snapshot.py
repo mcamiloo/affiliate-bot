@@ -64,7 +64,11 @@ def build_snapshot() -> dict[str, Any]:
         latest_offers = [o for o in db.list_recent_offers(limit=10) if not o["hidden"]][:3]
 
     for offer in latest_offers:
-        offer["headline"] = pick_offer_headline(offer["category"], offer["item_id"])
+        # headline já vem gravado em posted_offers (orchestrator.py decide
+        # na hora de publicar, considerando a oferta anterior da mesma
+        # categoria) — só recalcula pra linhas antigas, de antes dessa
+        # coluna existir.
+        offer["headline"] = offer["headline"] or pick_offer_headline(offer["category"], offer["item_id"])
 
     last_cycle = last_successful_cycle()
     last_cycle_at, last_cycle_count = last_cycle if last_cycle else (None, None)

@@ -194,6 +194,31 @@ def test_run_cycle_deduplicates_across_keywords_in_same_run(monkeypatch, tmp_pat
     assert len(calls) == 1
 
 
+def test_process_keyword_avoids_repeating_headline_of_same_category(monkeypatch, db):
+    # Pool minúsculo de propósito: sem a lógica de avoid, duas ofertas
+    # seguidas da mesma categoria colidiriam quase sempre nesse cenário.
+    monkeypatch.setattr(config, "OFFER_HEADLINES", {"setup_gamer": ["A", "B"], "default": ["A", "B"]})
+    monkeypatch.setattr(config, "MAX_OFFERS_PER_KEYWORD", 3)
+    # item_ids escolhidos pra que ambos caiam naturalmente no mesmo índice
+    # do pool (mesmo gancho "A") sem a lógica de avoid.
+    from utils.headlines import pick_offer_headline
+
+    same_bucket_ids = [f"ITEM{i}" for i in range(50) if pick_offer_headline("setup_gamer", f"ITEM{i}") == "A"]
+    assert len(same_bucket_ids) >= 2
+    offers = [make_offer(item_id=same_bucket_ids[0]), make_offer(item_id=same_bucket_ids[1])]
+    monkeypatch.setattr(orch, "discover_new_offers", lambda keyword, db: offers)
+    published_calls = []
+    monkeypatch.setattr(orch, "publish_offer", lambda **kwargs: published_calls.append(kwargs))
+    monkeypatch.setattr(orch, "publish_offer_whatsapp", lambda **kwargs: None)
+
+    orch.process_keyword("gaming mouse", db)
+
+    assert published_calls[0]["headline"] == "A"
+    assert published_calls[1]["headline"] == "B"
+    assert db.get_offer(same_bucket_ids[0])["headline"] == "A"
+    assert db.get_offer(same_bucket_ids[1])["headline"] == "B"
+
+
 def test_run_cycle_defaults_to_config_niche_keywords(monkeypatch, tmp_path):
     monkeypatch.setattr(config, "DB_PATH", tmp_path / "cycle3.db")
     seen_keywords = []

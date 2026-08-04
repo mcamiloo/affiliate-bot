@@ -12,8 +12,7 @@ def test_format_offer_message_contains_expected_fields():
         discounted_price=99.9,
         discount_percent=50,
         link="https://example.com/product",
-        category="setup_gamer",
-        item_id="ITEM1",
+        headline="RAGE QUIT LESS, UPGRADE MORE",
     )
     assert "Gaming Mouse RGB" in msg
     assert "£199.90" in msg
@@ -24,44 +23,16 @@ def test_format_offer_message_contains_expected_fields():
     assert 'href="https://example.com/product"' in msg
 
 
-def test_format_offer_message_includes_category_headline():
+def test_format_offer_message_includes_given_headline():
     msg = tp.format_offer_message(
         title="Gaming Mouse RGB",
         original_price=199.9,
         discounted_price=99.9,
         discount_percent=50,
         link="https://example.com/product",
-        category="setup_gamer",
-        item_id="ITEM1",
+        headline="YOUR K/D RATIO WILL THANK YOU",
     )
-    assert any(headline in msg for headline in config.OFFER_HEADLINES["setup_gamer"])
-
-
-def test_format_offer_message_falls_back_to_default_headline_for_unknown_category():
-    msg = tp.format_offer_message(
-        title="Mystery Gadget",
-        original_price=10,
-        discounted_price=5,
-        discount_percent=50,
-        link="https://example.com/product",
-        category=None,
-        item_id="ITEM2",
-    )
-    assert any(headline in msg for headline in config.OFFER_HEADLINES["default"])
-
-
-def test_format_offer_message_same_item_id_always_picks_same_headline():
-    first = tp.format_offer_message(
-        title="A", original_price=10, discounted_price=5, discount_percent=50,
-        link="https://example.com", category="consoles", item_id="STABLE",
-    )
-    second = tp.format_offer_message(
-        title="B", original_price=20, discounted_price=15, discount_percent=25,
-        link="https://example.com", category="consoles", item_id="STABLE",
-    )
-    picked_first = next(h for h in config.OFFER_HEADLINES["consoles"] if h in first)
-    picked_second = next(h for h in config.OFFER_HEADLINES["consoles"] if h in second)
-    assert picked_first == picked_second
+    assert "YOUR K/D RATIO WILL THANK YOU" in msg
 
 
 def test_format_offer_message_escapes_html_special_chars():
@@ -71,10 +42,24 @@ def test_format_offer_message_escapes_html_special_chars():
         discounted_price=50,
         discount_percent=50,
         link="https://example.com/x?y=1&z=2",
+        headline="BARGAIN ALERT",
     )
     assert "<Bluetooth>" not in msg
     assert "&lt;Bluetooth&gt;" in msg
     assert "&amp;" in msg
+
+
+def test_format_offer_message_escapes_headline_html():
+    msg = tp.format_offer_message(
+        title="Produto",
+        original_price=10,
+        discounted_price=5,
+        discount_percent=50,
+        link="https://example.com",
+        headline="<script>alert(1)</script>",
+    )
+    assert "<script>" not in msg
+    assert "&lt;script&gt;" in msg
 
 
 class FakeBot:
@@ -114,12 +99,14 @@ def test_publish_offer_sends_formatted_message():
         discounted_price=50,
         discount_percent=50,
         link="https://example.com",
+        headline="BARGAIN ALERT",
     )
 
     assert len(FakeBot.calls) == 1
     sent = FakeBot.calls[0]
     assert sent["chat_id"] == config.TELEGRAM_CHAT_ID
     assert "Produto Teste" in sent["text"]
+    assert "BARGAIN ALERT" in sent["text"]
 
 
 def test_publish_offer_retries_on_telegram_error(monkeypatch):
@@ -132,6 +119,7 @@ def test_publish_offer_retries_on_telegram_error(monkeypatch):
         discounted_price=5,
         discount_percent=50,
         link="https://example.com",
+        headline="BARGAIN ALERT",
     )
 
     assert len(FakeBot.calls) == 3  # 2 falhas simuladas + 1 sucesso
@@ -148,6 +136,7 @@ def test_publish_offer_gives_up_after_max_retries(monkeypatch):
             discounted_price=5,
             discount_percent=50,
             link="https://example.com",
+            headline="BARGAIN ALERT",
         )
 
     assert len(FakeBot.calls) == config.MAX_RETRIES + 1

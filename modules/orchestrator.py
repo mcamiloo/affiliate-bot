@@ -18,6 +18,7 @@ from database.db_manager import DBManager, compute_score
 from modules.aliexpress_client import discover_new_offers
 from modules.telegram_publisher import publish_offer
 from modules.whatsapp_publisher import publish_offer as publish_offer_whatsapp
+from utils.headlines import pick_offer_headline
 from utils.offer_title import clean_offer_title
 
 logger = logging.getLogger(__name__)
@@ -55,6 +56,10 @@ def process_keyword(keyword: str, db: DBManager) -> int:
         # newsletter/landing page/painel leem depois) usam esse mesmo
         # offer.title daqui em diante, então ficam todos consistentes.
         offer.title = clean_offer_title(offer.title)
+        # avoid=última oferta publicada nessa categoria: sem isso o gancho é
+        # só determinístico por item_id, e com pools pequenos duas ofertas
+        # seguidas da mesma categoria acabam mostrando o mesmo texto.
+        headline = pick_offer_headline(category, offer.item_id, avoid=db.get_last_headline(category))
         try:
             publish_offer(
                 title=offer.title,
@@ -62,8 +67,7 @@ def process_keyword(keyword: str, db: DBManager) -> int:
                 discounted_price=offer.sale_price,
                 discount_percent=offer.discount_percent,
                 link=offer.affiliate_url,
-                category=category,
-                item_id=offer.item_id,
+                headline=headline,
             )
         except Exception:
             logger.exception(
@@ -105,6 +109,7 @@ def process_keyword(keyword: str, db: DBManager) -> int:
             discount_percent=offer.discount_percent,
             image_url=offer.image_url,
             category=category,
+            headline=headline,
         )
         published += 1
 

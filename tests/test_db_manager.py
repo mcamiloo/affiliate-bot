@@ -12,7 +12,7 @@ def db(tmp_path):
     manager.close()
 
 
-def _sample_offer(item_id="MLB123", price=99.9, original_price=199.9, discount=50.0):
+def _sample_offer(item_id="MLB123", price=99.9, original_price=199.9, discount=50.0, category="setup_gamer"):
     return dict(
         item_id=item_id,
         title="Mouse Gamer RGB",
@@ -21,7 +21,7 @@ def _sample_offer(item_id="MLB123", price=99.9, original_price=199.9, discount=5
         price=price,
         original_price=original_price,
         discount_percent=discount,
-        category="setup_gamer",
+        category=category,
     )
 
 
@@ -116,6 +116,44 @@ def test_save_offer_image_url_defaults_to_none(db):
     db.save_offer(**_sample_offer())
     offer = db.get_offer("MLB123")
     assert offer["image_url"] is None
+
+
+def test_save_offer_persists_headline(db):
+    db.save_offer(**_sample_offer(), headline="RAGE QUIT LESS, UPGRADE MORE")
+    offer = db.get_offer("MLB123")
+    assert offer["headline"] == "RAGE QUIT LESS, UPGRADE MORE"
+
+
+def test_save_offer_headline_defaults_to_none(db):
+    db.save_offer(**_sample_offer())
+    offer = db.get_offer("MLB123")
+    assert offer["headline"] is None
+
+
+def test_get_last_headline_returns_none_when_category_empty(db):
+    assert db.get_last_headline("setup_gamer") is None
+
+
+def test_get_last_headline_returns_most_recent_in_category(db):
+    db.save_offer(**_sample_offer(item_id="OLD"), headline="OLD HEADLINE")
+    db.save_offer(**_sample_offer(item_id="NEW"), headline="NEW HEADLINE")
+    assert db.get_last_headline("setup_gamer") == "NEW HEADLINE"
+
+
+def test_get_last_headline_ignores_other_categories(db):
+    db.save_offer(**_sample_offer(item_id="A", category="consoles"), headline="CONSOLE HEADLINE")
+    assert db.get_last_headline("setup_gamer") is None
+
+
+def test_get_last_headline_matches_null_category(db):
+    db.save_offer(**_sample_offer(item_id="A", category=None), headline="DEFAULT HEADLINE")
+    assert db.get_last_headline(None) == "DEFAULT HEADLINE"
+    assert db.get_last_headline("setup_gamer") is None
+
+
+def test_get_last_headline_skips_rows_without_headline(db):
+    db.save_offer(**_sample_offer(item_id="NO_HEADLINE"))
+    assert db.get_last_headline("setup_gamer") is None
 
 
 def test_migration_adds_image_url_to_pre_existing_db(tmp_path):

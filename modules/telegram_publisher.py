@@ -18,7 +18,6 @@ from telegram.constants import ParseMode
 from telegram.error import TelegramError
 
 import config
-from utils.headlines import pick_offer_headline
 from utils.retry import with_retry
 
 logger = logging.getLogger(__name__)
@@ -36,14 +35,13 @@ def format_offer_message(
     discounted_price: float,
     discount_percent: float,
     link: str,
-    category: str | None = None,
-    item_id: str = "",
+    headline: str,
 ) -> str:
     safe_title = html.escape(title)
     safe_link = html.escape(link, quote=True)
     # quote=False: aspas retas não têm significado especial em texto (só em
     # valor de atributo), e alguns ganchos usam aspas de propósito.
-    headline = html.escape(pick_offer_headline(category, item_id), quote=False)
+    headline = html.escape(headline, quote=False)
     return (
         f"🚨 <b>{headline}</b>\n\n"
         f"<b>{safe_title}</b>\n\n"
@@ -75,11 +73,10 @@ def publish_offer(
     discounted_price: float,
     discount_percent: float,
     link: str,
-    category: str | None = None,
-    item_id: str = "",
+    headline: str,
 ) -> None:
     text = format_offer_message(
-        title, original_price, discounted_price, discount_percent, link, category, item_id
+        title, original_price, discounted_price, discount_percent, link, headline
     )
     _send_with_retry(text)
     logger.info("Oferta publicada no Telegram: %s", title)

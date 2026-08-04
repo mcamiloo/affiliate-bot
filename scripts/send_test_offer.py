@@ -26,6 +26,7 @@ def main() -> None:
         discounted_price=149.90,
         discount_percent=50,
         link="https://s.click.aliexpress.com/e/_example123",
+        headline="BARGAIN ALERT",
     )
     print("Mensagem de teste enviada com sucesso.")
 
