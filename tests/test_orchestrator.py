@@ -26,6 +26,15 @@ def db(tmp_path):
     manager.close()
 
 
+@pytest.fixture(autouse=True)
+def no_real_image_downloads(monkeypatch):
+    # cache_offer_image faz uma requisição HTTP de verdade — sem isso os
+    # testes de process_keyword tentariam baixar https://ae01.alicdn.com/
+    # img.jpg de verdade a cada run. Testes específicos do comportamento
+    # de cache sobrescrevem isso.
+    monkeypatch.setattr(orch, "cache_offer_image", lambda item_id, image_url: None)
+
+
 def test_process_keyword_publishes_and_saves(monkeypatch, db):
     # Não depender do valor real de config.MAX_OFFERS_PER_KEYWORD (vem do
     # .env do projeto, hoje =1) — este teste precisa de espaço pra 2.
@@ -44,6 +53,30 @@ def test_process_keyword_publishes_and_saves(monkeypatch, db):
     assert db.is_duplicate("1")
     assert db.is_duplicate("2")
     assert db.get_offer("1")["image_url"] == "https://ae01.alicdn.com/img.jpg"
+
+
+def test_process_keyword_persists_cached_image_path(monkeypatch, db):
+    offers = [make_offer(item_id="1")]
+    monkeypatch.setattr(orch, "discover_new_offers", lambda keyword, db: offers)
+    monkeypatch.setattr(orch, "publish_offer", lambda **kwargs: None)
+    monkeypatch.setattr(orch, "publish_offer_whatsapp", lambda **kwargs: None)
+    monkeypatch.setattr(orch, "cache_offer_image", lambda item_id, image_url: f"{item_id}.webp")
+
+    orch.process_keyword("gaming mouse", db)
+
+    assert db.get_offer("1")["local_image_path"] == "1.webp"
+
+
+def test_process_keyword_leaves_local_image_path_none_when_cache_fails(monkeypatch, db):
+    offers = [make_offer(item_id="1")]
+    monkeypatch.setattr(orch, "discover_new_offers", lambda keyword, db: offers)
+    monkeypatch.setattr(orch, "publish_offer", lambda **kwargs: None)
+    monkeypatch.setattr(orch, "publish_offer_whatsapp", lambda **kwargs: None)
+    monkeypatch.setattr(orch, "cache_offer_image", lambda item_id, image_url: None)
+
+    orch.process_keyword("gaming mouse", db)
+
+    assert db.get_offer("1")["local_image_path"] is None
 
 
 def test_process_keyword_publishes_highest_score_first(monkeypatch, db):

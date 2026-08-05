@@ -57,6 +57,16 @@ def count_total_offers() -> int:
 
 
 def render(offers: list[dict]) -> str:
+    # Site estático: caminho relativo (não a URL do painel) — o arquivo
+    # cacheado é copiado pra dist/offer-images/ em main(), pra não
+    # depender do Mac/Tailscale estar de pé pra visitante ver a imagem
+    # (nem linkar direto pro CDN da AliExpress, que bloqueia hotlinking
+    # de forma intermitente — ver utils/image_cache.py).
+    offers = [
+        {**offer, "image_url": f"offer-images/{offer['local_image_path']}"} if offer.get("local_image_path") else offer
+        for offer in offers
+    ]
+
     env = Environment(loader=FileSystemLoader(TEMPLATES_DIR), autoescape=True)
     template = env.get_template("landing.html.j2")
     return template.render(
@@ -139,6 +149,25 @@ def render_sitemap_xml() -> str:
     )
 
 
+def copy_offer_images(offers: list[dict], dist_dir: Path) -> int:
+    """Copia a cópia local (ver utils/image_cache.py) de cada oferta
+    renderizada pra dist_dir/offer-images/ — sem isso o caminho relativo
+    que render() gera no HTML apontaria pra um arquivo que não existe no
+    site publicado. Retorna quantos arquivos foram copiados."""
+    images_out = dist_dir / "offer-images"
+    copied = 0
+    for offer in offers:
+        if not offer.get("local_image_path"):
+            continue
+        source = config.OFFER_IMAGE_CACHE_DIR / offer["local_image_path"]
+        if not source.exists():
+            continue
+        images_out.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, images_out / offer["local_image_path"])
+        copied += 1
+    return copied
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--limit", type=int, default=DEFAULT_LIMIT, help="Quantidade máxima de ofertas na página.")
@@ -153,6 +182,8 @@ def main() -> None:
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(html, encoding="utf-8")
+
+    images_copied = copy_offer_images(offers, args.out.parent)
 
     privacy_out = args.out.parent / "privacy.html"
     privacy_out.write_text(render_privacy(), encoding="utf-8")
@@ -177,6 +208,7 @@ def main() -> None:
 
     with_image = sum(1 for o in offers if o["image_url"])
     print(f"✅ {len(offers)} oferta(s) renderizada(s) ({with_image} com imagem) -> {args.out}")
+    print(f"✅ {images_copied} imagem(ns) em cache copiada(s) -> {args.out.parent / 'offer-images'}")
     print(f"✅ Página de privacidade -> {privacy_out}")
     print(f"✅ Página de termos -> {terms_out}")
     print(f"✅ Página de agradecimento -> {thank_you_out}")

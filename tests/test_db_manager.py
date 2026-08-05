@@ -130,6 +130,18 @@ def test_save_offer_headline_defaults_to_none(db):
     assert offer["headline"] is None
 
 
+def test_save_offer_persists_local_image_path(db):
+    db.save_offer(**_sample_offer(), local_image_path="MLB123.webp")
+    offer = db.get_offer("MLB123")
+    assert offer["local_image_path"] == "MLB123.webp"
+
+
+def test_save_offer_local_image_path_defaults_to_none(db):
+    db.save_offer(**_sample_offer())
+    offer = db.get_offer("MLB123")
+    assert offer["local_image_path"] is None
+
+
 def test_get_last_headline_returns_none_when_category_empty(db):
     assert db.get_last_headline("setup_gamer") is None
 

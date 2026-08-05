@@ -28,7 +28,8 @@ from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from flask import Flask, Response, flash, jsonify, redirect, render_template, request, session, url_for
+import httpx
+from flask import Flask, Response, flash, jsonify, redirect, render_template, request, send_from_directory, session, url_for
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -77,12 +78,15 @@ DEFAULT_ADMIN_PASSWORD = secrets.token_urlsafe(12)
 # clicada por qualquer assinante (não faz login) — se autentica pelo HMAC
 # na própria URL (ver verify_unsub_token). api_brevo_webhook é o Brevo
 # chamando de fora — se autentica por header secreto + allowlist de IP.
+# offer_image também precisa ser público: o widget do iPad busca essas
+# imagens direto (sem sessão) via a mesma URL pública do painel.
 _PUBLIC_ENDPOINTS = {
     "login",
     "api_widget_snapshot",
     "api_run_cycle_now",
     "newsletter_unsubscribe",
     "api_brevo_webhook",
+    "offer_image",
 }
 
 if not config.APPROVAL_PANEL_SECRET_KEY:
@@ -134,9 +138,19 @@ def _to_uk_local(iso_utc: str) -> datetime:
     return datetime.fromisoformat(iso_utc).astimezone(UK_TZ)
 
 
+def _offer_image_url(offer: dict[str, Any]) -> Optional[str]:
+    """Cópia local (ver utils.image_cache) se existir, senão a URL
+    original da AliExpress — chamado nos templates em vez de acessar
+    offer.image_url direto, pra todo card de oferta se beneficiar do
+    cache sem repetir essa lógica em cada .html."""
+    if offer.get("local_image_path"):
+        return url_for("offer_image", filename=offer["local_image_path"])
+    return offer.get("image_url")
+
+
 @app.context_processor
 def _inject_helpers():
-    return {"to_uk_local": _to_uk_local}
+    return {"to_uk_local": _to_uk_local, "offer_image_url": _offer_image_url}
 
 
 def _service_running(label: str) -> bool:
@@ -408,12 +422,47 @@ def hide_offer(item_id: str):
     return redirect(url_for("offers"))
 
 
+@app.route("/offer-images/<path:filename>")
+def offer_image(filename: str):
+    """Serve a cópia local baixada por utils.image_cache — evita linkar
+    direto pro CDN da AliExpress, que bloqueia hotlinking de forma
+    intermitente (ver comentário em config.OFFER_IMAGE_CACHE_DIR)."""
+    return send_from_directory(config.OFFER_IMAGE_CACHE_DIR, filename)
+
+
 @app.route("/subscribers")
 def subscribers():
     search = (request.args.get("q") or "").strip()
     with DBManager() as db:
         rows = db.list_subscribers(search=search or None)
-    return render_template("subscribers.html", subscribers=rows, search=search)
+    try:
+        pending = brevo_client.list_pending_signups()
+    except (brevo_client.BrevoError, httpx.HTTPError):
+        logger.exception("Falha ao buscar cadastros pendentes de confirmação no Brevo")
+        pending = []
+    return render_template("subscribers.html", subscribers=rows, search=search, pending=pending)
+
+
+@app.route("/subscribers/pending/<path:email>/resend", methods=["POST"])
+def resend_confirmation(email: str):
+    # não temos o timestamp original do consentimento aqui (só o Brevo
+    # tem, no log de eventos) — busca de novo pra gravar o
+    # CONSENT_TIMESTAMP correto (data do pedido original, não do
+    # reenvio) no contato quando ele finalmente confirmar.
+    consent_timestamp = None
+    try:
+        for entry in brevo_client.list_pending_signups():
+            if entry["email"].lower() == email.lower():
+                consent_timestamp = entry["first_requested_at"]
+                break
+        brevo_client.create_doi_contact(
+            email, consent_timestamp=consent_timestamp or datetime.now(timezone.utc).isoformat()
+        )
+        flash(f"Link de confirmação reenviado para {email}.")
+    except (brevo_client.BrevoError, httpx.HTTPError):
+        logger.exception("Falha ao reenviar confirmação de double opt-in pra %s", email)
+        flash(f"Não foi possível reenviar o link pra {email} — tenta de novo em instantes.")
+    return redirect(url_for("subscribers"))
 
 
 @app.route("/subscribers/sync", methods=["POST"])

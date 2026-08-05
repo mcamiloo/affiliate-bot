@@ -56,6 +56,25 @@ def test_render_html_contains_unsubscribe_tag():
     assert "{{ unsubscribe }}" in html
 
 
+def test_render_html_uses_local_image_cache_when_available(monkeypatch):
+    import config
+
+    monkeypatch.setattr(config, "APPROVAL_PANEL_PUBLIC_URL", "https://panel.example.com")
+    html = newsletter.render_html([_sample_offer(local_image_path="1.webp")])
+
+    assert "https://panel.example.com/offer-images/1.webp" in html
+    assert "https://ae01.alicdn.com/img.jpg" not in html
+
+
+def test_render_html_falls_back_to_original_image_url_without_cache(monkeypatch):
+    import config
+
+    monkeypatch.setattr(config, "APPROVAL_PANEL_PUBLIC_URL", "https://panel.example.com")
+    html = newsletter.render_html([_sample_offer()])
+
+    assert "https://ae01.alicdn.com/img.jpg" in html
+
+
 def test_render_html_contains_configured_address(monkeypatch):
     import config
 

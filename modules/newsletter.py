@@ -43,6 +43,18 @@ def render_html(offers: list[dict[str, Any]]) -> str:
             "descadastro próprio no rodapé do email (ver templates/newsletter_email.html.j2)."
         )
 
+    panel_base_url = config.APPROVAL_PANEL_PUBLIC_URL.rstrip("/")
+    # Email precisa de URL absoluta (não dá pra servir relativo num
+    # cliente de email) — usa a cópia local via painel em vez de linkar
+    # direto pro CDN da AliExpress, que bloqueia hotlinking de forma
+    # intermitente (ver utils/image_cache.py).
+    offers = [
+        {**offer, "image_url": f"{panel_base_url}/offer-images/{offer['local_image_path']}"}
+        if offer.get("local_image_path")
+        else offer
+        for offer in offers
+    ]
+
     env = Environment(loader=FileSystemLoader(TEMPLATES_DIR), autoescape=True)
     template = env.get_template("newsletter_email.html.j2")
     return template.render(

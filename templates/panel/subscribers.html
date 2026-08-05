@@ -51,4 +51,38 @@
     </tbody>
   </table>
 </div>
+
+<h2>Pendentes de confirmação</h2>
+<p class="muted" style="margin-top:-0.5rem;">
+  Cadastraram o email mas ainda não clicaram no link de confirmação — o contato só entra
+  de fato na lista depois desse clique. Se demorar demais (comum em Hotmail/Outlook/Yahoo
+  com domínio novo, costuma cair em spam), reenvie o link abaixo.
+</p>
+<div class="card">
+  <table>
+    <thead>
+      <tr><th>Email</th><th>Primeiro pedido</th><th>Último pedido</th><th>Tentativas</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for p in pending %}
+      <tr>
+        <td>{{ p.email }}</td>
+        <td class="muted">{{ to_uk_local(p.first_requested_at).strftime('%d/%m/%Y %H:%M') }}</td>
+        <td class="muted">{{ to_uk_local(p.last_requested_at).strftime('%d/%m/%Y %H:%M') }}</td>
+        <td>
+          {{ p.attempts }}
+          {% if p.attempts > 1 %}<span class="status-pill bad">tentou de novo</span>{% endif %}
+        </td>
+        <td>
+          <form method="post" action="{{ url_for('resend_confirmation', email=p.email) }}">
+            <button type="submit" class="btn-secondary">Reenviar link</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="muted">Ninguém pendente no momento.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
 {% endblock %}

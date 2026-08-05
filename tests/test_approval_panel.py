@@ -404,6 +404,48 @@ def test_offers_requires_login(anon_client):
     assert "/login" in response.headers["Location"]
 
 
+def test_offers_uses_cached_image_url_when_available(client):
+    _save_offer("O3", image_url="https://ae01.alicdn.com/img.jpg", local_image_path="O3.webp")
+    response = client.get("/offers")
+    assert b"/offer-images/O3.webp" in response.data
+    assert b"ae01.alicdn.com" not in response.data
+
+
+def test_offers_falls_back_to_original_image_url_without_cache(client):
+    _save_offer("O4", image_url="https://ae01.alicdn.com/img.jpg")
+    response = client.get("/offers")
+    assert b"ae01.alicdn.com" in response.data
+
+
+# --- imagens em cache -------------------------------------------------------
+
+
+def test_offer_image_serves_cached_file(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "OFFER_IMAGE_CACHE_DIR", tmp_path)
+    (tmp_path / "O5.webp").write_bytes(b"fake-image-bytes")
+
+    response = client.get("/offer-images/O5.webp")
+
+    assert response.status_code == 200
+    assert response.data == b"fake-image-bytes"
+
+
+def test_offer_image_404_for_missing_file(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "OFFER_IMAGE_CACHE_DIR", tmp_path)
+    response = client.get("/offer-images/does-not-exist.webp")
+    assert response.status_code == 404
+
+
+def test_offer_image_does_not_require_login(anon_client, tmp_path, monkeypatch):
+    # o widget do iPad busca essa imagem sem sessão (ver _PUBLIC_ENDPOINTS)
+    monkeypatch.setattr(config, "OFFER_IMAGE_CACHE_DIR", tmp_path)
+    (tmp_path / "O6.webp").write_bytes(b"fake-image-bytes")
+
+    response = anon_client.get("/offer-images/O6.webp")
+
+    assert response.status_code == 200
+
+
 # --- rodar ciclo agora -----------------------------------------------------
 
 
@@ -709,7 +751,8 @@ def test_subscribers_lists_all_statuses(client):
         db.upsert_subscriber(email="active@b.com", brevo_contact_id=1, status="active")
         db.upsert_subscriber(email="gone@b.com", brevo_contact_id=2, status="unsubscribed")
 
-    response = client.get("/subscribers")
+    with patch.object(approval_panel.brevo_client, "list_pending_signups", return_value=[]):
+        response = client.get("/subscribers")
     assert response.status_code == 200
     assert b"active@b.com" in response.data
     assert b"gone@b.com" in response.data
@@ -720,13 +763,70 @@ def test_subscribers_search_filters_by_email(client):
         db.upsert_subscriber(email="findme@b.com", brevo_contact_id=1, status="active")
         db.upsert_subscriber(email="other@b.com", brevo_contact_id=2, status="active")
 
-    response = client.get("/subscribers?q=findme")
+    with patch.object(approval_panel.brevo_client, "list_pending_signups", return_value=[]):
+        response = client.get("/subscribers?q=findme")
     assert b"findme@b.com" in response.data
     assert b"other@b.com" not in response.data
 
 
 def test_subscribers_requires_login(anon_client):
     response = anon_client.get("/subscribers")
+    assert response.status_code == 302
+    assert "/login" in response.headers["Location"]
+
+
+def test_subscribers_shows_pending_signups(client):
+    pending = [
+        {
+            "email": "waiting@x.com",
+            "first_requested_at": "2026-08-05T18:02:00.000-03:00",
+            "last_requested_at": "2026-08-05T18:11:00.000-03:00",
+            "attempts": 3,
+        }
+    ]
+    with patch.object(approval_panel.brevo_client, "list_pending_signups", return_value=pending):
+        response = client.get("/subscribers")
+    assert response.status_code == 200
+    assert b"waiting@x.com" in response.data
+
+
+def test_subscribers_pending_falls_back_to_empty_on_brevo_error(client):
+    with patch.object(
+        approval_panel.brevo_client, "list_pending_signups", side_effect=approval_panel.brevo_client.BrevoError("boom")
+    ):
+        response = client.get("/subscribers")
+    assert response.status_code == 200
+
+
+def test_resend_confirmation_calls_brevo_with_original_consent_timestamp(client):
+    pending = [
+        {
+            "email": "waiting@x.com",
+            "first_requested_at": "2026-08-05T18:02:00.000-03:00",
+            "last_requested_at": "2026-08-05T18:11:00.000-03:00",
+            "attempts": 3,
+        }
+    ]
+    with patch.object(approval_panel.brevo_client, "list_pending_signups", return_value=pending), \
+         patch.object(approval_panel.brevo_client, "create_doi_contact") as create_mock:
+        response = client.post("/subscribers/pending/waiting@x.com/resend")
+
+    assert response.status_code == 302
+    create_mock.assert_called_once_with("waiting@x.com", consent_timestamp="2026-08-05T18:02:00.000-03:00")
+
+
+def test_resend_confirmation_handles_brevo_failure_gracefully(client):
+    with patch.object(approval_panel.brevo_client, "list_pending_signups", return_value=[]), \
+         patch.object(
+             approval_panel.brevo_client, "create_doi_contact", side_effect=approval_panel.brevo_client.BrevoError("boom")
+         ):
+        response = client.post("/subscribers/pending/waiting@x.com/resend")
+
+    assert response.status_code == 302
+
+
+def test_resend_confirmation_requires_login(anon_client):
+    response = anon_client.post("/subscribers/pending/waiting@x.com/resend")
     assert response.status_code == 302
     assert "/login" in response.headers["Location"]
 

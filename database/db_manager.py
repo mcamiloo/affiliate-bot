@@ -113,6 +113,7 @@ _MIGRATIONS: list[str] = [
     "ALTER TABLE posted_offers ADD COLUMN image_url TEXT;",
     "ALTER TABLE posted_offers ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0;",
     "ALTER TABLE posted_offers ADD COLUMN headline TEXT;",
+    "ALTER TABLE posted_offers ADD COLUMN local_image_path TEXT;",
 ]
 
 
@@ -285,6 +286,7 @@ class DBManager:
         category: Optional[str] = None,
         image_url: Optional[str] = None,
         headline: Optional[str] = None,
+        local_image_path: Optional[str] = None,
     ) -> bool:
         """Persiste uma oferta publicada.
 
@@ -296,6 +298,10 @@ class DBManager:
         categoria (ver get_last_headline) — recalcular em outro momento
         veria uma ordem/vizinhança diferente e poderia divergir do texto
         que já saiu no Telegram pra essa oferta.
+
+        local_image_path é só o nome do arquivo em config.OFFER_IMAGE_
+        CACHE_DIR (ver utils/image_cache.py), None se o download falhou —
+        nesse caso quem exibe a oferta cai de volta pra image_url.
         """
         try:
             with self._conn:
@@ -303,8 +309,9 @@ class DBManager:
                     """
                     INSERT INTO posted_offers (
                         item_id, title, url, affiliate_url,
-                        price, original_price, discount_percent, category, image_url, headline
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                        price, original_price, discount_percent, category, image_url, headline,
+                        local_image_path
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
                     """,
                     (
                         item_id,
@@ -317,6 +324,7 @@ class DBManager:
                         category,
                         image_url,
                         headline,
+                        local_image_path,
                     ),
                 )
             return True

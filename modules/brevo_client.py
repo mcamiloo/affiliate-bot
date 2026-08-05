@@ -201,6 +201,42 @@ def unsubscribe_contact(email: str) -> None:
 
 
 @with_retry(exceptions=(httpx.TransportError,))
+def list_pending_signups() -> list[dict[str, Any]]:
+    """Emails que pediram double opt-in (evento 'requests' com tag 'optin')
+    mas ainda não confirmaram.
+
+    O contato só é criado no Brevo quando a pessoa clica no link do email
+    de confirmação — até lá não existe registro de contato nenhum pra
+    consultar, então a única fonte de verdade sobre "quem tentou" é o
+    log de eventos SMTP. Cruza com list_list_contacts() pra tirar quem
+    já confirmou nesse meio tempo.
+    """
+    with _client() as client:
+        response = client.get(
+            "/smtp/statistics/events",
+            params={"limit": 500, "sort": "desc", "tags": "optin", "event": "requests"},
+        )
+        _raise_for_status(response)
+        events = response.json().get("events", [])
+
+    attempts: dict[str, dict[str, Any]] = {}
+    for event in events:
+        email = event["email"]
+        entry = attempts.setdefault(
+            email,
+            {"email": email, "first_requested_at": event["date"], "last_requested_at": event["date"], "attempts": 0},
+        )
+        entry["attempts"] += 1
+        entry["first_requested_at"] = min(entry["first_requested_at"], event["date"])
+        entry["last_requested_at"] = max(entry["last_requested_at"], event["date"])
+
+    confirmed_emails = {contact["email"].lower() for contact in list_list_contacts()}
+    pending = [a for a in attempts.values() if a["email"].lower() not in confirmed_emails]
+    pending.sort(key=lambda a: a["last_requested_at"], reverse=True)
+    return pending
+
+
+@with_retry(exceptions=(httpx.TransportError,))
 def create_marketing_webhook(url: str, events: list[str], secret: str, description: str) -> int:
     """Registra o webhook de eventos de campanha no Brevo, com o segredo
     num header custom em vez de na URL — evita que ele apareça em log de

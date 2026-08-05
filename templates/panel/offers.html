@@ -26,7 +26,7 @@
   {% for offer in offers %}
   <div class="card offer-card {{ 'is-hidden' if offer.hidden }}">
     {% if offer.image_url %}
-    <img class="offer-thumb" src="{{ offer.image_url }}" alt="" loading="lazy">
+    <img class="offer-thumb" src="{{ offer_image_url(offer) }}" alt="" loading="lazy">
     {% else %}
     <div class="offer-thumb-placeholder"></div>
     {% endif %}

@@ -2,6 +2,7 @@ import config
 from scripts.generate_landing_page import (
     HIGHLIGHT_SCORE_THRESHOLD,
     SITE_URL,
+    copy_offer_images,
     render,
     render_privacy,
     render_robots_txt,
@@ -92,6 +93,51 @@ def test_render_robots_txt_references_sitemap():
     robots = render_robots_txt()
     assert "Allow: /" in robots
     assert f"Sitemap: {SITE_URL}/sitemap.xml" in robots
+
+
+def test_render_uses_relative_offer_images_path_when_cached():
+    html = render([_offer(image_url="https://ae01.alicdn.com/img.jpg", local_image_path="1.webp")])
+    assert 'src="offer-images/1.webp"' in html
+    assert "ae01.alicdn.com" not in html
+
+
+def test_render_falls_back_to_original_image_url_without_cache():
+    html = render([_offer(image_url="https://ae01.alicdn.com/img.jpg")])
+    assert "ae01.alicdn.com" in html
+
+
+def test_copy_offer_images_copies_existing_cached_files(tmp_path, monkeypatch):
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    monkeypatch.setattr(config, "OFFER_IMAGE_CACHE_DIR", cache_dir)
+    (cache_dir / "1.webp").write_bytes(b"fake-bytes")
+
+    dist_dir = tmp_path / "dist"
+    dist_dir.mkdir()
+    copied = copy_offer_images([_offer(local_image_path="1.webp")], dist_dir)
+
+    assert copied == 1
+    assert (dist_dir / "offer-images" / "1.webp").read_bytes() == b"fake-bytes"
+
+
+def test_copy_offer_images_skips_offers_without_local_path(tmp_path):
+    dist_dir = tmp_path / "dist"
+    dist_dir.mkdir()
+    copied = copy_offer_images([_offer()], dist_dir)
+
+    assert copied == 0
+    assert not (dist_dir / "offer-images").exists()
+
+
+def test_copy_offer_images_skips_missing_cache_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "OFFER_IMAGE_CACHE_DIR", tmp_path / "empty-cache")
+    (tmp_path / "empty-cache").mkdir()
+    dist_dir = tmp_path / "dist"
+    dist_dir.mkdir()
+
+    copied = copy_offer_images([_offer(local_image_path="missing.webp")], dist_dir)
+
+    assert copied == 0
 
 
 def test_render_sitemap_xml_is_well_formed_and_excludes_noindex_pages():

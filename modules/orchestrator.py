@@ -19,6 +19,7 @@ from modules.aliexpress_client import discover_new_offers
 from modules.telegram_publisher import publish_offer
 from modules.whatsapp_publisher import publish_offer as publish_offer_whatsapp
 from utils.headlines import pick_offer_headline
+from utils.image_cache import cache_offer_image
 from utils.offer_title import clean_offer_title
 
 logger = logging.getLogger(__name__)
@@ -99,6 +100,11 @@ def process_keyword(keyword: str, db: DBManager) -> int:
                 offer.title,
             )
 
+        # Best-effort: baixa uma cópia local da imagem pra não depender do
+        # CDN da AliExpress (bloqueia hotlinking de forma intermitente) —
+        # None se falhar, e quem exibe a oferta cai de volta pra image_url.
+        local_image_path = cache_offer_image(offer.item_id, offer.image_url)
+
         db.save_offer(
             item_id=offer.item_id,
             title=offer.title,
@@ -110,6 +116,7 @@ def process_keyword(keyword: str, db: DBManager) -> int:
             image_url=offer.image_url,
             category=category,
             headline=headline,
+            local_image_path=local_image_path,
         )
         published += 1
 

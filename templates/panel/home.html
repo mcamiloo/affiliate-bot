@@ -11,7 +11,7 @@
     {% for offer in latest_offers %}
     <div class="tg-bubble">
       {% if offer.image_url %}
-      <img src="{{ offer.image_url }}" alt="">
+      <img src="{{ offer_image_url(offer) }}" alt="">
       {% else %}
       <div class="tg-thumb-placeholder"></div>
       {% endif %}

@@ -80,6 +80,54 @@ def test_list_list_contacts_paginates(monkeypatch):
     assert calls == [0, 500]
 
 
+def test_list_pending_signups_excludes_confirmed_contacts(monkeypatch):
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/smtp/statistics/events"):
+            assert dict(request.url.params)["event"] == "requests"
+            assert dict(request.url.params)["tags"] == "optin"
+            return httpx.Response(
+                200,
+                json={
+                    "events": [
+                        {"email": "pending@x.com", "date": "2026-08-05T18:11:25.000-03:00", "event": "requests"},
+                        {"email": "confirmed@x.com", "date": "2026-08-05T18:10:00.000-03:00", "event": "requests"},
+                    ]
+                },
+            )
+        return httpx.Response(200, json={"contacts": [{"email": "confirmed@x.com"}]})
+
+    monkeypatch.setattr(brevo_client, "_client", lambda: _mock_client(handler))
+
+    pending = brevo_client.list_pending_signups()
+
+    assert len(pending) == 1
+    assert pending[0]["email"] == "pending@x.com"
+
+
+def test_list_pending_signups_counts_attempts_and_tracks_dates(monkeypatch):
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/smtp/statistics/events"):
+            return httpx.Response(
+                200,
+                json={
+                    "events": [
+                        {"email": "retry@x.com", "date": "2026-08-05T18:11:00.000-03:00", "event": "requests"},
+                        {"email": "retry@x.com", "date": "2026-08-05T18:05:00.000-03:00", "event": "requests"},
+                        {"email": "retry@x.com", "date": "2026-08-05T18:02:00.000-03:00", "event": "requests"},
+                    ]
+                },
+            )
+        return httpx.Response(200, json={"contacts": []})
+
+    monkeypatch.setattr(brevo_client, "_client", lambda: _mock_client(handler))
+
+    pending = brevo_client.list_pending_signups()
+
+    assert pending[0]["attempts"] == 3
+    assert pending[0]["first_requested_at"] == "2026-08-05T18:02:00.000-03:00"
+    assert pending[0]["last_requested_at"] == "2026-08-05T18:11:00.000-03:00"
+
+
 def test_create_campaign_draft_returns_id(monkeypatch):
     captured = {}
 

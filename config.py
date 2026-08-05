@@ -37,6 +37,14 @@ LOG_FILE = LOGS_DIR / "affiliate_bot.log"
 WIDGET_SNAPSHOT_PATH = STATE_DIR / "widget_snapshot.json"
 WIDGET_RUN_TRIGGER_PATH = STATE_DIR / "widget_run_trigger"
 
+# Cópia local das imagens de oferta — o CDN da AliExpress bloqueia
+# hotlinking de forma intermitente (WAF anti-scraping deles reage a
+# padrão de tráfego, não é algo que dependa da nossa configuração), então
+# baixamos uma vez na publicação (ver utils/image_cache.py) e servimos
+# daqui em vez de linkar direto pro CDN deles.
+OFFER_IMAGE_CACHE_DIR = STATE_DIR / "offer_images"
+OFFER_IMAGE_CACHE_DIR.mkdir(exist_ok=True)
+
 load_dotenv(BASE_DIR / ".env")
 
 
